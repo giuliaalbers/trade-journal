@@ -70,6 +70,13 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
  .btlogrow>div{display:flex;justify-content:space-between;padding:2px 0}
  .btlogrow .num{text-align:left;padding-right:0}
 }
+.ocrzone{border:1.5px dashed var(--border);border-radius:8px;padding:22px 14px;text-align:center;color:var(--faint);font-size:12.5px;cursor:pointer;transition:.15s}
+.ocrzone:hover,.ocrzone:focus{border-color:var(--accent);color:var(--text);outline:none}
+.ocrzone.drag{border-color:var(--accent);background:var(--panel2)}
+.ocrzone.busy{border-style:solid;color:var(--accent)}
+.ocrpreview{margin-top:10px;font-size:11.5px;color:var(--dim);background:var(--panel2);border:1px solid var(--soft);border-radius:8px;padding:10px 12px;display:none}
+.ocrpreview.show{display:block}
+.ocrpreview b{color:var(--text);font-family:monospace}
 @media(max-width:800px){
  .rail{transform:translateX(-100%);width:245px;box-shadow:10px 0 35px rgba(0,0,0,.35)}.rail.open{transform:translateX(0)}.main{margin-left:0;padding:14px 12px 75px}.mobilebar{display:flex;align-items:center;gap:10px;margin-bottom:14px;position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg) 80%,transparent);padding:4px 0 12px}.menu{width:38px;height:38px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:9px;font-size:18px}.mobiletitle{font-weight:650}.head h1{font-size:20px}.head p{font-size:12px}.strip{flex-direction:column;gap:10px}.readout{border-right:0;border-bottom:1px solid var(--soft);padding:0 0 10px;min-width:0;width:100%;display:flex;justify-content:space-between;align-items:end}.chart svg{height:75px}.toolbar{display:grid;grid-template-columns:1fr 1fr}.toolbar select{width:100%}.toolbar .spacer,.count{grid-column:1/-1}.blotterhead{display:none}.row{display:block;padding:13px}.row>div{display:flex;justify-content:space-between;padding:2px 0}.row .setup{white-space:normal}.row .num,.row .pnl{padding:2px 0;text-align:left}.row .flag{display:none}.summary{grid-template-columns:1fr 1fr}.summary .stat:last-child{grid-column:1/-1}.period .current{min-width:0;flex:1}.calgrid{gap:3px}.cell{min-height:66px;padding:5px 4px}.cellpnl{font-size:9px}.cellcount{font-size:8px}.callegend{flex-wrap:wrap;font-size:10px}.facts{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.modalback{padding:0}.modal{border-radius:14px 14px 0 0;margin-top:auto;max-height:96vh;overflow:auto}.modalhead{position:sticky;top:0;background:var(--panel);z-index:2}.modalbody{padding:15px}.modalfoot{position:sticky;bottom:0;background:var(--panel)}.bname{width:105px}.amt{width:68px}.statstable{min-width:760px;font-size:10px}.statstable th,.statstable td{padding:8px 7px}.hint{font-size:10px}.drop{padding:40px 16px}
 }
@@ -201,10 +208,14 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    <div class="section">Quick log a backtest trade</div>
    <div class="card" style="padding:16px 18px;margin-bottom:16px">
     <div class="field" style="margin-bottom:10px">
-     <label>Paste from TradingView position tool (optional — parses Entry, Stop, Target, Qty, Symbol, Direction)</label>
-     <textarea class="pastebox" id="btpaste" placeholder="Paste the position-tool text here, e.g.&#10;Long MNQ&#10;Entry 20123.25  Stop 20110.00  Target 20150.00  Qty 2"></textarea>
-     <div style="margin-top:8px"><button class="ghost" id="btparse">Parse into fields below</button></div>
+     <label>Paste or drop a screenshot of the TradingView position box — reads Target, Stop, and Risk/Reward off the image</label>
+     <div class="ocrzone" id="btocrzone" tabindex="0">
+      <div id="btocrzone-msg">Click here, then paste a screenshot (Ctrl/Cmd+V) — or drop an image file</div>
+      <input hidden type="file" id="btocrfile" accept="image/*">
+     </div>
+     <div class="ocrpreview" id="btocrpreview"></div>
     </div>
+    <div class="hint">Works best with a clean device screenshot. Phone photos of a monitor (moiré, glare) read poorly — manual entry below is always the reliable fallback.</div>
     <div class="qtygrid">
      <div class="field"><label>Symbol</label><input id="btf_symbol" placeholder="MNQ"></div>
      <div class="field"><label>Direction</label><select id="btf_dir"><option>Long</option><option>Short</option></select></div>
@@ -252,6 +263,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 <script>
 (()=> {
 const KEY='blotter-trade-journal-v2';
@@ -435,34 +447,133 @@ function btPreview(){
  $('btpreview').innerHTML=`<span>Risk: <b>${risk.toFixed(2)}pt</b></span><span>Reward: <b>${reward.toFixed(2)}pt</b></span><span>R: <b class="${r>=0?'pos':'neg'}">${r.toFixed(2)}R</b></span><span>P/L (@ $${pv}/pt): <b class="${pnl>=0?'pos':'neg'}">${money(pnl)}</b></span>`;
 }
 ['btf_symbol','btf_dir','btf_entry','btf_stop','btf_exit','btf_qty'].forEach(id=>$(id).addEventListener('input',btPreview));
-function btParsePaste(txt){
- let out={};
- let symMatch=txt.match(/\b(MNQ|MES|NQ|ES|MGC|GC|MCL|CL|M2K|RTY|MYM|YM|MBT|BTC)\b/i);
+function btParseOCRText(text){
+ let out={}, norm=text.replace(/\s+/g,' ');
+ let symMatch=norm.match(/\b(MNQ|MES|NQ|ES|MGC|GC|MCL|CL|M2K|RTY|MYM|YM|MBT|BTC)\b/i);
  if(symMatch) out.symbol=symMatch[1].toUpperCase();
- if(/\bshort\b/i.test(txt)) out.direction='Short';
- else if(/\blong\b/i.test(txt)) out.direction='Long';
+ if(/\bshort\b/i.test(norm)) out.direction='Short';
+ else if(/\blong\b/i.test(norm)) out.direction='Long';
  let numAfter=label=>{
-  let m=txt.match(new RegExp(label+"[:\\s]*\\$?(-?[\\d,]+\\.?\\d*)","i"));
+  let m=norm.match(new RegExp(label+"[:\\s]{0,4}\\$?(-?[\\d,]+\\.?\\d*)","i"));
   return m?parseFloat(m[1].replace(/,/g,'')):null;
  };
  let entry=numAfter('entry'); if(entry!=null)out.entry=entry;
- let stop=numAfter('(?:stop\\s*loss|stop|s\\/l|sl)'); if(stop!=null)out.stop=stop;
- let exitP=numAfter('(?:target|take\\s*profit|tp|exit)'); if(exitP!=null)out.exit=exitP;
+ let stop=numAfter('stop'); if(stop!=null)out.stop=stop;
+ let target=numAfter('target'); if(target!=null)out.target=target;
+ let amount=numAfter('amount'); if(amount!=null)out.amount=amount;
+ let closedPL=numAfter('closed\\s*p[/\\\\]?l'); if(closedPL!=null)out.closedPL=closedPL;
+ // Risk/Reward ratio, e.g. "Risk/Reward ratio: 1:1.48" or "1.48"
+ let rr=norm.match(/risk\s*\/?\s*reward\s*ratio[:\s]{0,4}1?\s*[:\/]?\s*([\d.]+)/i);
+ if(rr) out.ratio=parseFloat(rr[1]);
  let qty=numAfter('(?:qty|quantity|contracts?|size)'); if(qty!=null)out.qty=qty;
+ // derive entry when missing: entry sits at a ratio-weighted point between target and stop
+ if(out.entry==null && out.target!=null && out.stop!=null && out.ratio){
+  out.entry = (out.target + out.ratio*out.stop) / (1+out.ratio);
+  out.entryDerived = true;
+ }
  return out;
 }
-$('btparse').onclick=()=>{
- let parsed=btParsePaste($('btpaste').value);
+async function btRunOCR(source){
+ if(typeof Tesseract==='undefined'){
+  $('btocrpreview').className='ocrpreview show';
+  $('btocrpreview').innerHTML='OCR library failed to load — check your connection, or enter values manually below.';
+  return;
+ }
+ let zone=$('btocrzone');
+ zone.classList.add('busy');
+ $('btocrzone-msg').textContent='Reading image…';
+ $('btocrpreview').className='ocrpreview show';
+ $('btocrpreview').innerHTML='Running OCR — this can take a few seconds on first use.';
+ try{
+  let {data:{text}} = await Tesseract.recognize(source,'eng',{
+   logger:m=>{ if(m.status==='recognizing text') $('btocrzone-msg').textContent=`Reading image… ${Math.round((m.progress||0)*100)}%`; }
+  });
+  let parsed=btParseOCRText(text);
+  btApplyParsed(parsed);
+  let found=['symbol','direction','entry','stop','target','ratio'].filter(k=>parsed[k]!=null);
+  if(found.length){
+   $('btocrpreview').innerHTML = `<b>Parsed from image:</b> ` + found.map(k=>{
+     let v=k==='entry'&&parsed.entryDerived ? parsed.entry.toFixed(2)+' (derived from ratio)' : parsed[k];
+     return `${k}: <b>${esc(v)}</b>`;
+   }).join(' · ') + `<br>Double-check against the screenshot before adding — OCR isn't perfect.`;
+   toast(`Parsed ${found.length} field${found.length==1?'':'s'} from image`);
+  } else {
+   $('btocrpreview').innerHTML = `Couldn't confidently read this image. Try a cleaner screenshot (not a phone photo of a screen) or enter values manually below.`;
+   toast('No fields recognized — try a cleaner image or enter manually');
+  }
+ }catch(err){
+  $('btocrpreview').innerHTML = 'OCR failed on this image. Enter values manually below.';
+  toast('OCR failed');
+ }
+ zone.classList.remove('busy');
+ $('btocrzone-msg').textContent='Click here, then paste a screenshot (Ctrl/Cmd+V) — or drop an image file';
+}
+const btocrzone=$('btocrzone');
+btocrzone.addEventListener('click',()=>$('btocrfile').click());
+$('btocrfile').addEventListener('change',()=>{ if($('btocrfile').files[0]) btRunOCR($('btocrfile').files[0]); $('btocrfile').value=''; });
+['dragenter','dragover'].forEach(ev=>btocrzone.addEventListener(ev,e=>{e.preventDefault();btocrzone.classList.add('drag')}));
+['dragleave','drop'].forEach(ev=>btocrzone.addEventListener(ev,e=>{e.preventDefault();btocrzone.classList.remove('drag')}));
+btocrzone.addEventListener('drop',e=>{ let f=e.dataTransfer.files[0]; if(f&&f.type.startsWith('image/')) btRunOCR(f); });
+
+function btHandlePaste(e){
+ let cd=e.clipboardData||window.clipboardData;
+ if(!cd) return;
+ let types=[...cd.types||[]];
+ // 1) try every non-image text-ish format first — this is where TradingView's
+ // real structured data lives, not just the "Long Position" plain-text fallback
+ let combined='';
+ let debugParts=[];
+ for(let t of types){
+  if(t.startsWith('image/')) continue;
+  try{
+   let d=cd.getData(t);
+   if(d){ combined += '\n'+d; debugParts.push(`[${t}] (${d.length} chars): ${d.slice(0,300)}`); }
+  }catch(err){}
+ }
+ if(combined.trim()){
+  let parsed=btParseOCRText(combined);
+  let found=['symbol','direction','entry','stop','target','ratio'].filter(k=>parsed[k]!=null);
+  if(found.length){
+   e.preventDefault();
+   btApplyParsed(parsed);
+   $('btocrpreview').className='ocrpreview show';
+   $('btocrpreview').innerHTML=`<b>Parsed from clipboard:</b> `+found.map(k=>{
+     let v=k==='entry'&&parsed.entryDerived ? parsed.entry.toFixed(2)+' (derived)' : parsed[k];
+     return `${k}: <b>${esc(v)}</b>`;
+   }).join(' · ')+`<br>Double-check before adding.`;
+   toast(`Parsed ${found.length} field${found.length==1?'':'s'} from clipboard`);
+   return;
+  }
+  // nothing recognized in the text formats — show what we actually got so we can tune the parser
+  e.preventDefault();
+  $('btocrpreview').className='ocrpreview show';
+  $('btocrpreview').innerHTML=`Clipboard had text data but nothing matched. Raw formats found:<br><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(debugParts.join('\n\n'))}</pre>Screenshot this and send it over so I can tune the parser to your exact format.`;
+  return;
+ }
+ // 2) no usable text at all — fall back to image OCR
+ let items=cd.items||[];
+ for(let item of items){
+  if(item.type.startsWith('image/')){ e.preventDefault(); btRunOCR(item.getAsFile()); return; }
+ }
+ $('btocrpreview').className='ocrpreview show';
+ $('btocrpreview').innerHTML='Clipboard was empty or unreadable. If you copied the TradingView tool directly, try again, or use a screen-capture-to-clipboard shortcut instead (Cmd+Ctrl+Shift+4 on Mac, Win+Shift+S on Windows) then paste that.';
+}
+function btApplyParsed(parsed){
  if(parsed.symbol) $('btf_symbol').value=parsed.symbol;
  if(parsed.direction) $('btf_dir').value=parsed.direction;
- if(parsed.entry!=null) $('btf_entry').value=parsed.entry;
+ if(parsed.entry!=null) $('btf_entry').value=Math.round(parsed.entry*100)/100;
  if(parsed.stop!=null) $('btf_stop').value=parsed.stop;
- if(parsed.exit!=null) $('btf_exit').value=parsed.exit;
+ if(parsed.target!=null) $('btf_exit').value=parsed.target;
  if(parsed.qty!=null) $('btf_qty').value=parsed.qty;
  btPreview();
- let got=Object.keys(parsed).length;
- toast(got?`Parsed ${got} field${got==1?'':'s'} — review before adding`:'No recognizable fields found — fill in manually');
-};
+}
+btocrzone.addEventListener('paste', btHandlePaste);
+// document-level fallback: catch paste even if the zone itself isn't focused, as long as Backtest tab is open
+document.addEventListener('paste',e=>{
+ if(!$('backtest').classList.contains('active')) return;
+ if(document.activeElement===btocrzone) return; // already handled above
+ btHandlePaste(e);
+});
 $('btadd').onclick=()=>{
  let bt=S.backtests?.[btActiveId]; if(!bt)return;
  let symbol=$('btf_symbol').value.trim().toUpperCase(), direction=$('btf_dir').value;
@@ -471,8 +582,8 @@ $('btadd').onclick=()=>{
  bt.trades=bt.trades||[];
  bt.trades.push({id:uid(), dateISO:new Date().toISOString(), symbol, direction, entry, stop, exit:exitP, qty});
  save();
- $('btpaste').value=''; $('btf_symbol').value=''; $('btf_entry').value=''; $('btf_stop').value=''; $('btf_exit').value=''; $('btf_qty').value=1;
- $('btpreview').innerHTML='';
+ $('btf_symbol').value=''; $('btf_entry').value=''; $('btf_stop').value=''; $('btf_exit').value=''; $('btf_qty').value=1;
+ $('btpreview').innerHTML=''; $('btocrpreview').className='ocrpreview';
  toast('Backtest trade added');
  renderBtStats();
 };
