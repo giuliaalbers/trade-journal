@@ -454,12 +454,15 @@ function btParseOCRText(text){
  if(/\bshort\b/i.test(norm)) out.direction='Short';
  else if(/\blong\b/i.test(norm)) out.direction='Long';
  let numAfter=label=>{
-  let m=norm.match(new RegExp(label+"[:\\s]{0,4}\\$?(-?[\\d,]+\\.?\\d*)","i"));
-  return m?parseFloat(m[1].replace(/,/g,'')):null;
+  let m=norm.match(new RegExp(label+"[^0-9\\-]{0,15}(-?[\\d,]+\\.?\\d*)","i"));
+  if(m) return parseFloat(m[1].replace(/,/g,''));
+  // fallback: number appears before the label instead of after
+  let m2=norm.match(new RegExp("(-?[\\d,]+\\.?\\d*)[^0-9\\-]{0,15}"+label,"i"));
+  return m2?parseFloat(m2[1].replace(/,/g,'')):null;
  };
- let entry=numAfter('entry'); if(entry!=null)out.entry=entry;
- let stop=numAfter('stop'); if(stop!=null)out.stop=stop;
- let target=numAfter('target'); if(target!=null)out.target=target;
+ let entry=numAfter('entry|avg\\s*price|average\\s*price|fill\\s*price'); if(entry!=null)out.entry=entry;
+ let stop=numAfter('stop\\s*loss|stop-loss|s\\/l|\\bsl\\b|stop'); if(stop!=null)out.stop=stop;
+ let target=numAfter('take\\s*profit|take-profit|\\btp\\b|target'); if(target!=null)out.target=target;
  let amount=numAfter('amount'); if(amount!=null)out.amount=amount;
  let closedPL=numAfter('closed\\s*p[/\\\\]?l'); if(closedPL!=null)out.closedPL=closedPL;
  // Risk/Reward ratio, e.g. "Risk/Reward ratio: 1:1.48" or "1.48"
@@ -533,21 +536,19 @@ function btHandlePaste(e){
  if(combined.trim()){
   let parsed=btParseOCRText(combined);
   let found=['symbol','direction','entry','stop','target','ratio'].filter(k=>parsed[k]!=null);
+  let rawDump=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--dim)">Raw clipboard data (tap to expand)</summary><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(debugParts.join('\n\n'))}</pre></details>`;
+  e.preventDefault();
+  $('btocrpreview').className='ocrpreview show';
   if(found.length){
-   e.preventDefault();
    btApplyParsed(parsed);
-   $('btocrpreview').className='ocrpreview show';
    $('btocrpreview').innerHTML=`<b>Parsed from clipboard:</b> `+found.map(k=>{
      let v=k==='entry'&&parsed.entryDerived ? parsed.entry.toFixed(2)+' (derived)' : parsed[k];
      return `${k}: <b>${esc(v)}</b>`;
-   }).join(' · ')+`<br>Double-check before adding.`;
+   }).join(' · ')+`<br>Double-check before adding.${rawDump}`;
    toast(`Parsed ${found.length} field${found.length==1?'':'s'} from clipboard`);
-   return;
+  } else {
+   $('btocrpreview').innerHTML=`Clipboard had text data but nothing matched.${rawDump}Screenshot the expanded raw data and send it over so I can tune the parser to your exact format.`;
   }
-  // nothing recognized in the text formats — show what we actually got so we can tune the parser
-  e.preventDefault();
-  $('btocrpreview').className='ocrpreview show';
-  $('btocrpreview').innerHTML=`Clipboard had text data but nothing matched. Raw formats found:<br><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(debugParts.join('\n\n'))}</pre>Screenshot this and send it over so I can tune the parser to your exact format.`;
   return;
  }
  // 2) no usable text at all — fall back to image OCR
