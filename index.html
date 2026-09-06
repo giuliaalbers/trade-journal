@@ -134,7 +134,20 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   <div class="head"><h1>Import position history</h1><p>Import your Tradovate CSV. Re-importing the same file will not duplicate trades.</p></div>
   <div class="drop" id="drop"><div class="big">⇪</div><h3>Drop CSV here</h3><p>or choose a file from your iPhone</p><button class="btn" id="browse">Choose CSV</button><input hidden type="file" id="file" accept=".csv,text/csv"></div>
   <div class="status" id="status"><span id="statusText"></span><button class="ghost" data-go="trades">View trades →</button></div>
-  <div class="note">Expected Tradovate columns include <code>Symbol</code>, <code>Bought Timestamp</code>, <code>Sold Timestamp</code>, <code>Buy Price</code>, <code>Sell Price</code>, <code>Qty</code>, and <code>P/L</code>. Your journal data is saved in this browser on this device.</div>
+  <div class="note">Expected Tradovate columns include <code>Symbol</code>, <code>Bought Timestamp</code>, <code>Sold Timestamp</code>, <code>Buy Price</code>, <code>Sell Price</code>, <code>Qty</code>, and <code>P/L</code>.</div>
+
+  <div class="section">Backup &amp; restore</div>
+  <div class="note" style="border-color:var(--amber);color:var(--dim)">
+   <b style="color:var(--amber)">Back up regularly.</b> Your journal is stored in this browser only. Safari deletes site data after <b>7 days without visiting the site</b>, and clearing history wipes it too. Data does not sync between browsers or devices. A backup file is the only thing that protects you.
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+   <button class="btn" id="backupBtn">Download backup</button>
+   <button class="ghost" id="restoreBrowse">Restore from backup</button>
+   <input hidden type="file" id="restoreFile" accept=".json,application/json">
+  </div>
+  <div class="status" id="backupStatus"><span id="backupStatusText"></span></div>
+  <div class="hint" id="lastBackup" style="margin-top:8px"></div>
+  <div class="hint" id="persistState" style="margin-top:4px"></div>
  </section>
 
  <section class="view" id="trades">
@@ -337,6 +350,76 @@ function statRows(list,keyFn,labelFn,sortFn){let g=statsGroup(list,keyFn);let ke
 function parseTrad(txt){let r=parseCSV(txt);if(r.length<2)return[];let h=r[0], cs=col(h,['symbol','contract']),cb=col(h,['bought timestamp','buy timestamp','entry timestamp','bought time']),ce=col(h,['sold timestamp','sell timestamp','exit timestamp','sold time']),bp=col(h,['buy price','entry price','avg buy price']),sp=col(h,['sell price','exit price','avg sell price']),qt=col(h,['qty','quantity','filled qty']),pl=col(h,['p/l','pnl','p&l','profit/loss','net p/l','realized p/l']),bs=col(h,['b/s','side','buy/sell','type']),du=col(h,['duration']);let out=[];for(let i=1;i<r.length;i++){let x=r[i],sym=cs>=0?(x[cs]||'').trim():'';if(!sym)continue;let b=cb>=0?(x[cb]||'').trim():'',e=ce>=0?(x[ce]||'').trim():'',rawSide=bs>=0?(x[bs]||'').trim():'',d=new Date(e||b),valid=!isNaN(d);let t={id:uid(),symbol:sym,boughtTs:b,soldTs:e,buyPrice:bp>=0?num(x[bp]):null,sellPrice:sp>=0?num(x[sp]):null,qty:qt>=0?num(x[qt]):1,pnl:pl>=0?num(x[pl]):0,side:rawSide,duration:du>=0?(x[du]||'').trim():'',dateISO:valid?d.toISOString():null,setup:'',emoEntry:'',emoExit:'',entryNotes:'',exitNotes:'',screenshots:[]};t.side=direction(t);out.push(t)}return out}
 function fp(t){return [t.symbol,t.boughtTs,t.soldTs,t.buyPrice,t.sellPrice,t.pnl].join('|')}
 async function importFile(file){let txt=await file.text(),arr=parseTrad(txt);if(!arr.length){$('status').classList.add('show');$('statusText').textContent='No trades found. Check that this is a Tradovate position history CSV.';return}let seen=new Set(S.trades.map(t=>t.fingerprint||fp(t))),added=0;arr.forEach(p=>{let f=fp(p);if(seen.has(f))return;p.fingerprint=f;S.trades.push(p);seen.add(f);added++});S.trades.sort((a,b)=>(new Date(b.dateISO||0))-(new Date(a.dateISO||0)));save();$('status').classList.add('show');$('statusText').innerHTML=`<span class="ok">✓ Imported ${added} new trade${added==1?'':'s'}</span>${arr.length-added?` · ${arr.length-added} already logged`:''}`;toast(`${added} trade${added==1?'':'s'} imported`);renderAll()}
+// ===================== BACKUP / RESTORE =====================
+function backupNow(){
+ let payload={_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:S};
+ let blob=new Blob([JSON.stringify(payload,null,1)],{type:'application/json'});
+ let url=URL.createObjectURL(blob);
+ let a=document.createElement('a');
+ a.href=url;
+ a.download=`blotter-backup-${key(new Date())}.json`;
+ document.body.appendChild(a); a.click(); a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+ S.lastBackup=new Date().toISOString(); save(); showLastBackup();
+ $('backupStatus').classList.add('show');
+ $('backupStatusText').innerHTML='<span class="ok">✓ Backup downloaded.</span> Keep it somewhere safe — iCloud Drive, Dropbox, anywhere off this browser.';
+}
+function showLastBackup(){
+ let el=$('lastBackup'); if(!el) return;
+ if(!S.lastBackup){ el.innerHTML='<span style="color:var(--amber)">No backup taken yet.</span>'; return; }
+ let d=new Date(S.lastBackup);
+ let days=Math.floor((Date.now()-d.getTime())/86400000);
+ let warn=days>=5?'color:var(--red)':days>=3?'color:var(--amber)':'color:var(--faint)';
+ el.innerHTML=`<span style="${warn}">Last backup: ${d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})}${days>0?` — ${days} day${days==1?'':'s'} ago`:' — today'}</span>`;
+}
+async function restoreFrom(file){
+ let txt=await file.text();
+ let parsed;
+ try{ parsed=JSON.parse(txt); }catch(err){
+  $('backupStatus').classList.add('show');
+  $('backupStatusText').innerHTML='<span style="color:var(--red)">That file is not valid JSON.</span>';
+  return;
+ }
+ let incoming=parsed&&parsed.data?parsed.data:parsed;
+ if(!incoming||typeof incoming!=='object'||!Array.isArray(incoming.trades)){
+  $('backupStatus').classList.add('show');
+  $('backupStatusText').innerHTML='<span style="color:var(--red)">That does not look like a Blotter backup file.</span>';
+  return;
+ }
+ let n=incoming.trades.length, bt=Object.keys(incoming.backtests||{}).length;
+ if(!confirm(`Restore this backup?\n\n${n} trades, ${bt} backtest${bt==1?'':'s'}\n\nThis REPLACES everything currently in the journal. Your current data will be gone.`)) return;
+ S=Object.assign({trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[]},incoming);
+ S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});
+ syncSetups(); save();
+ $('backupStatus').classList.add('show');
+ $('backupStatusText').innerHTML=`<span class="ok">✓ Restored ${n} trades.</span>`;
+ showLastBackup(); renderAll(); toast('Backup restored');
+}
+$('backupBtn').onclick=backupNow;
+// Ask the browser to mark this site's storage as persistent. Granted storage is
+// exempt from automatic eviction (including Safari's 7-day rule). Best effort:
+// browsers may refuse, so this reduces risk rather than removing it.
+async function requestPersistence(){
+ let el=$('persistState'); if(!el) return;
+ if(!navigator.storage||!navigator.storage.persist){
+  el.innerHTML='<span style="color:var(--faint)">This browser does not report storage durability — back up regularly.</span>';
+  return;
+ }
+ try{
+  let already=navigator.storage.persisted?await navigator.storage.persisted():false;
+  let granted=already||await navigator.storage.persist();
+  el.innerHTML=granted
+   ? '<span class="ok">Storage marked persistent — this browser should not auto-evict your data. Keep backing up anyway.</span>'
+   : '<span style="color:var(--amber)">Browser did not grant persistent storage. Your data can be auto-cleared — backups matter.</span>';
+ }catch(err){
+  el.innerHTML='<span style="color:var(--faint)">Could not check storage durability — back up regularly.</span>';
+ }
+}
+requestPersistence();
+$('restoreBrowse').onclick=()=>$('restoreFile').click();
+$('restoreFile').onchange=e=>{ if(e.target.files[0]) restoreFrom(e.target.files[0]); e.target.value=''; };
+
+
 function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest()}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>navigate(b.dataset.view));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('menu').onclick=()=>$('rail').classList.toggle('open');
 $('browse').onclick=()=>$('file').click();$('file').onchange=e=>e.target.files[0]&&importFile(e.target.files[0]);['dragenter','dragover'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.remove('drag')}));$('drop').ondrop=e=>e.dataTransfer.files[0]&&importFile(e.dataTransfer.files[0]);
@@ -1039,7 +1122,7 @@ function renderBacktest(){
  if(btActiveId) renderBtStats();
 }
 
-function renderAll(){ $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest()}
+function renderAll(){ showLastBackup(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest()}
 try{let x=localStorage.getItem(KEY);if(x)S=Object.assign(S,JSON.parse(x));S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});S.setups=S.setups||[];syncSetups();save()}catch(e){}renderAll();
 })();
 </script>
