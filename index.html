@@ -449,6 +449,93 @@ function btPreview(){
  $('btpreview').innerHTML=`<span>Risk: <b>${risk.toFixed(2)}pt</b></span><span>Reward: <b>${reward.toFixed(2)}pt</b></span><span>R: <b class="${r>=0?'pos':'neg'}">${r.toFixed(2)}R</b></span><span>P/L (@ $${pv}/pt): <b class="${pnl>=0?'pos':'neg'}">${money(pnl)}</b></span>`;
 }
 ['btf_symbol','btf_dir','btf_entry','btf_stop','btf_exit','btf_qty'].forEach(id=>$(id).addEventListener('input',btPreview));
+// TradingView puts the whole drawing on the clipboard as JSON inside a
+// data-tradingview-clip attribute on a text/html span. This is the real data.
+function btParseTVClip(html){
+ if(!html) return null;
+ let m=html.match(/data-tradingview-clip=("|')(.*?)\1/s);
+ if(!m) return null;
+ let raw=m[2];
+ // the attribute is HTML-escaped; decode entities
+ let ta=document.createElement('textarea');
+ ta.innerHTML=raw;
+ let json=ta.value;
+ let data;
+ try{ data=JSON.parse(json); }catch(err){ return {error:'JSON parse failed', raw:json}; }
+
+ // walk the whole object collecting any keys we care about, wherever they sit
+ let hits={};
+ let toolType=null;
+ (function walk(node){
+  if(node===null||typeof node!=='object') return;
+  if(Array.isArray(node)){ node.forEach(walk); return; }
+  for(let [k,v] of Object.entries(node)){
+   let lk=k.toLowerCase();
+   if(typeof v==='number'){
+    if(lk==='entryprice'&&hits.entry==null) hits.entry=v;
+    else if(lk==='stopprice'&&hits.stopPrice==null) hits.stopPrice=v;
+    else if(lk==='profitprice'&&hits.profitPrice==null) hits.profitPrice=v;
+    else if(lk==='stoplevel'&&hits.stopLevel==null) hits.stopLevel=v;
+    else if(lk==='profitlevel'&&hits.profitLevel==null) hits.profitLevel=v;
+    else if(lk==='qty'&&hits.qty==null) hits.qty=v;
+   }
+   if(typeof v==='string'){
+    if(lk==='type'&&/riskreward/i.test(v)) toolType=v;
+    if(lk==='symbol'&&hits.symbol==null) hits.symbol=v;
+   }
+   walk(v);
+  }
+ })(data);
+
+ // direction from the tool type name
+ if(toolType){
+  if(/short/i.test(toolType)) hits.direction='Short';
+  else if(/long/i.test(toolType)) hits.direction='Long';
+ }
+
+ // clean the symbol: "CME_MINI:MNQ1!" -> "MNQ"
+ if(hits.symbol){
+  let s=hits.symbol.split(':').pop().replace(/\d*!?$/,'').toUpperCase();
+  if(s) hits.symbol=s;
+ }
+
+ hits._json=data;
+ hits._toolType=toolType;
+ return hits;
+}
+
+// Turn the raw clip values into entry/stop/target prices.
+// TradingView stores stopLevel/profitLevel as a distance from entry in
+// minimum price increments, so we need the instrument's tick size.
+const TICK={MNQ:0.25,NQ:0.25,MES:0.25,ES:0.25,MGC:0.1,GC:0.1,MCL:0.01,CL:0.01,M2K:0.1,RTY:0.1,MYM:1,YM:1};
+function btClipToFields(hits){
+ let out={};
+ if(hits.symbol) out.symbol=hits.symbol;
+ if(hits.direction) out.direction=hits.direction;
+ if(hits.qty!=null) out.qty=hits.qty;
+ let entry=hits.entry;
+ if(entry!=null) out.entry=entry;
+
+ // prefer explicit prices if TradingView gave them
+ if(hits.stopPrice!=null) out.stop=hits.stopPrice;
+ if(hits.profitPrice!=null) out.target=hits.profitPrice;
+
+ // otherwise derive from levels + tick size
+ if(entry!=null){
+  let tick=TICK[(out.symbol||'').toUpperCase()]??null;
+  let isShort=out.direction==='Short';
+  if(out.stop==null && hits.stopLevel!=null && tick!=null){
+   out.stop = isShort ? entry + hits.stopLevel*tick : entry - hits.stopLevel*tick;
+   out.stopDerived=true;
+  }
+  if(out.target==null && hits.profitLevel!=null && tick!=null){
+   out.target = isShort ? entry - hits.profitLevel*tick : entry + hits.profitLevel*tick;
+   out.targetDerived=true;
+  }
+ }
+ return out;
+}
+
 function btParseOCRText(text){
  let out={}, norm=text.replace(/\s+/g,' ');
  let symMatch=norm.match(/\b(MNQ|MES|NQ|ES|MGC|GC|MCL|CL|M2K|RTY|MYM|YM|MBT|BTC)\b/i);
@@ -533,7 +620,37 @@ function btHandlePaste(e){
   debugParts.push(`item[${i}] kind=${items[i].kind} type=${items[i].type}`);
  }
 
- // 1) direct image on the clipboard
+ // 1) TradingView drawing JSON on the clipboard — the real, exact data.
+ let htmlData='';
+ try{ htmlData=cd.getData('text/html')||''; }catch(err){}
+ let clip=btParseTVClip(htmlData);
+ if(clip && !clip.error){
+  e.preventDefault();
+  let f=btClipToFields(clip);
+  let found=['symbol','direction','entry','stop','target','qty'].filter(k=>f[k]!=null);
+  if(found.length){
+   btApplyParsed({symbol:f.symbol,direction:f.direction,entry:f.entry,stop:f.stop,target:f.target,qty:f.qty});
+   let detail=found.map(k=>{
+     let mark=(k==='stop'&&f.stopDerived)||(k==='target'&&f.targetDerived)?' (derived)':'';
+     let v=typeof f[k]==='number'?Math.round(f[k]*10000)/10000:f[k];
+     return `${k}: <b>${esc(v)}</b>${mark}`;
+   }).join(' · ');
+   $('btocrpreview').className='ocrpreview show';
+   $('btocrpreview').innerHTML=`<b>Read from TradingView position tool:</b> ${detail}`
+    +`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--dim)">Full drawing data (tap to expand)</summary><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(JSON.stringify(clip._json,null,1).slice(0,4000))}</pre></details>`;
+   toast(`Read ${found.length} field${found.length==1?'':'s'} from TradingView`);
+   btocrzone.innerHTML='';
+   return;
+  }
+  // JSON parsed but our key names didn't match — show the whole thing so we can fix it
+  $('btocrpreview').className='ocrpreview show';
+  $('btocrpreview').innerHTML=`Found TradingView drawing data, but couldn't locate the price fields in it.`
+   +`<details open style="margin-top:8px"><summary style="cursor:pointer;color:var(--dim)">Full drawing data</summary><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(JSON.stringify(clip._json,null,1).slice(0,4000))}</pre></details>`;
+  btocrzone.innerHTML='';
+  return;
+ }
+
+ // 2) direct image on the clipboard
  for(let item of items){
   if(item.type && item.type.startsWith('image/')){
    e.preventDefault();
