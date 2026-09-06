@@ -28,7 +28,29 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 
 .hint{color:var(--faint);font-size:11px;line-height:1.5;margin:-3px 0 10px}.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.statstable{width:100%;border-collapse:collapse;min-width:760px;font-size:11px}.statstable th{background:var(--panel2);color:var(--faint);font-size:9px;text-transform:uppercase;letter-spacing:.05em;text-align:right;padding:9px 10px;white-space:nowrap}.statstable th:first-child,.statstable td:first-child{text-align:left}.statstable td{padding:9px 10px;border-top:1px solid var(--soft);text-align:right;font:11px monospace;white-space:nowrap}.statstable td:first-child{font-family:inherit;color:var(--dim)}.statstable tr:hover td{background:var(--panel2)}.statstable .muted{color:var(--faint)}
 .breakdown{display:flex;flex-direction:column;gap:8px}.brow{display:flex;align-items:center;gap:10px}.bname{width:150px;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.barbg{height:7px;flex:1;background:var(--panel2);border-radius:5px;overflow:hidden}.bar{height:100%;border-radius:5px}.bar.pos{background:var(--green)}.bar.neg{background:var(--red)}.amt{width:75px;text-align:right;font:11px monospace}
-.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.dow{text-align:center;color:var(--faint);font-size:10px;padding-bottom:4px}.cell{min-height:85px;border:1px solid var(--border);border-radius:8px;background:var(--panel);padding:7px;display:flex;flex-direction:column;justify-content:space-between}.cell.win{background:rgba(62,207,142,.12);border-color:rgba(62,207,142,.3);cursor:pointer}.cell.loss{background:rgba(240,85,79,.12);border-color:rgba(240,85,79,.3);cursor:pointer}.cell.today{box-shadow:inset 0 0 0 1.5px var(--accent)}.daynum{font:11px monospace;color:var(--dim)}.cellpnl{font:700 11px monospace}.cellcount{font:9px monospace;color:var(--faint)}.weektotal{font:9px;color:var(--accent);text-align:right}.callegend{display:flex;gap:15px;color:var(--faint);font-size:11px;margin-top:14px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr) 0.85fr;gap:6px}
+.dow{text-align:center;color:var(--faint);font-size:10px;padding-bottom:4px}
+.dow.wk{color:var(--accent)}
+.cell{min-height:88px;border:1px solid var(--border);border-radius:8px;background:var(--panel);padding:6px 7px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.cell.blank{background:transparent;border:0}
+.cell.win{background:rgba(62,207,142,.12);border-color:rgba(62,207,142,.3);cursor:pointer}
+.cell.loss{background:rgba(240,85,79,.12);border-color:rgba(240,85,79,.3);cursor:pointer}
+.cell.journaled{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.cell.closed{background:repeating-linear-gradient(45deg,var(--panel),var(--panel) 6px,var(--panel2) 6px,var(--panel2) 12px);border-style:dashed}
+.cell.today .daynum{background:var(--accent);color:#fff;border-radius:4px;padding:0 4px}
+.cellhead{display:flex;align-items:center;justify-content:space-between;gap:3px}
+.daynum{font:11px monospace;color:var(--dim)}
+.badge-opex{font:8px monospace;background:var(--amber);color:#000;border-radius:3px;padding:1px 3px;font-weight:700}
+.badge-closed{font:8px monospace;background:var(--border);color:var(--faint);border-radius:3px;padding:1px 3px}
+.cellpnl{font:700 11px monospace}
+.cellcount{font:9px monospace;color:var(--faint)}
+.weekcell{min-height:88px;border:1px solid var(--soft);border-radius:8px;background:var(--panel2);padding:6px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:2px}
+.weekcell.win{border-color:rgba(62,207,142,.35)}
+.weekcell.loss{border-color:rgba(240,85,79,.35)}
+.wklbl{font:8px monospace;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+.wkpnl{font:700 12px monospace}
+.wksub{font:9px monospace;color:var(--faint)}
+.callegend{display:flex;gap:15px;color:var(--faint);font-size:11px;margin-top:14px;flex-wrap:wrap}
 .modalback{display:none;position:fixed;z-index:100;inset:0;background:rgba(5,7,9,.78);backdrop-filter:blur(4px);padding:20px;overflow:auto}.modalback.show{display:flex;justify-content:center;align-items:flex-start}.modal{width:100%;max-width:650px;background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:auto}.modalhead{padding:18px 20px;border-bottom:1px solid var(--soft);display:flex;justify-content:space-between;gap:12px}.modalhead h2{font-size:17px;margin:0}.meta{color:var(--dim);font:11px monospace;margin-top:4px}.close{background:transparent;border:0;color:var(--faint);font-size:18px}.badge{font:700 17px monospace;padding:5px 9px;border-radius:7px}.badge.pos{background:var(--greenD)}.badge.neg{background:var(--redD)}
 .modalbody{padding:18px 20px;display:flex;flex-direction:column;gap:15px}.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;padding:11px}.fact small{display:block;color:var(--faint);font-size:9px;text-transform:uppercase}.fact div{font:12px monospace;margin-top:2px;overflow:hidden;text-overflow:ellipsis}.field label{display:block;color:var(--dim);font-size:12px;margin-bottom:6px}.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.emos{display:flex;gap:5px;flex-wrap:wrap}.emo{flex:1;min-width:70px;background:var(--bg);border:1px solid var(--border);color:var(--dim);padding:8px 4px;border-radius:7px;font-size:11px}.emo.sel{border-color:var(--accent);background:var(--panel2);color:var(--text)}
@@ -57,7 +79,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 .qtygrid input,.qtygrid select{padding:8px}
 .rpreview{display:flex;gap:16px;padding:10px 14px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;font-size:12px;color:var(--dim);flex-wrap:wrap}
 .rpreview b{font-family:monospace}
-.btlogrow,.btloghead{display:grid;grid-template-columns:78px 55px 55px 65px 65px 65px 45px 55px 70px 24px;align-items:center}
+.btlogrow,.btloghead{display:grid;grid-template-columns:70px 48px 52px 46px minmax(80px,1fr) 62px 62px 62px 58px 58px 38px 50px 66px 22px;align-items:center}
 .btloghead{padding:9px 13px;background:var(--panel2);color:var(--faint);font-size:9.5px;text-transform:uppercase}
 .btlogrow{padding:10px 13px;border-top:1px solid var(--soft);font-size:11.5px}
 .btlogrow .num{font:11.5px monospace;text-align:right;padding-right:8px}
@@ -80,7 +102,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 .ocrpreview.show{display:block}
 .ocrpreview b{color:var(--text);font-family:monospace}
 @media(max-width:800px){
- .rail{transform:translateX(-100%);width:245px;box-shadow:10px 0 35px rgba(0,0,0,.35)}.rail.open{transform:translateX(0)}.main{margin-left:0;padding:14px 12px 75px}.mobilebar{display:flex;align-items:center;gap:10px;margin-bottom:14px;position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg) 80%,transparent);padding:4px 0 12px}.menu{width:38px;height:38px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:9px;font-size:18px}.mobiletitle{font-weight:650}.head h1{font-size:20px}.head p{font-size:12px}.strip{flex-direction:column;gap:10px}.readout{border-right:0;border-bottom:1px solid var(--soft);padding:0 0 10px;min-width:0;width:100%;display:flex;justify-content:space-between;align-items:end}.chart svg{height:75px}.toolbar{display:grid;grid-template-columns:1fr 1fr}.toolbar select{width:100%}.toolbar .spacer,.count{grid-column:1/-1}.blotterhead{display:none}.row{display:block;padding:13px}.row>div{display:flex;justify-content:space-between;padding:2px 0}.row .setup{white-space:normal}.row .num,.row .pnl{padding:2px 0;text-align:left}.row .flag{display:none}.summary{grid-template-columns:1fr 1fr}.summary .stat:last-child{grid-column:1/-1}.period .current{min-width:0;flex:1}.calgrid{gap:3px}.cell{min-height:66px;padding:5px 4px}.cellpnl{font-size:9px}.cellcount{font-size:8px}.callegend{flex-wrap:wrap;font-size:10px}.facts{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.modalback{padding:0}.modal{border-radius:14px 14px 0 0;margin-top:auto;max-height:96vh;overflow:auto}.modalhead{position:sticky;top:0;background:var(--panel);z-index:2}.modalbody{padding:15px}.modalfoot{position:sticky;bottom:0;background:var(--panel)}.bname{width:105px}.amt{width:68px}.statstable{min-width:760px;font-size:10px}.statstable th,.statstable td{padding:8px 7px}.hint{font-size:10px}.drop{padding:40px 16px}
+ .rail{transform:translateX(-100%);width:245px;box-shadow:10px 0 35px rgba(0,0,0,.35)}.rail.open{transform:translateX(0)}.main{margin-left:0;padding:14px 12px 75px}.mobilebar{display:flex;align-items:center;gap:10px;margin-bottom:14px;position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg) 80%,transparent);padding:4px 0 12px}.menu{width:38px;height:38px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:9px;font-size:18px}.mobiletitle{font-weight:650}.head h1{font-size:20px}.head p{font-size:12px}.strip{flex-direction:column;gap:10px}.readout{border-right:0;border-bottom:1px solid var(--soft);padding:0 0 10px;min-width:0;width:100%;display:flex;justify-content:space-between;align-items:end}.chart svg{height:75px}.toolbar{display:grid;grid-template-columns:1fr 1fr}.toolbar select{width:100%}.toolbar .spacer,.count{grid-column:1/-1}.blotterhead{display:none}.row{display:block;padding:13px}.row>div{display:flex;justify-content:space-between;padding:2px 0}.row .setup{white-space:normal}.row .num,.row .pnl{padding:2px 0;text-align:left}.row .flag{display:none}.summary{grid-template-columns:1fr 1fr}.summary .stat:last-child{grid-column:1/-1}.period .current{min-width:0;flex:1}.calgrid{gap:3px;grid-template-columns:repeat(7,1fr)}.weekcell{grid-column:1/-1;min-height:0;flex-direction:row;justify-content:space-between;align-items:center;padding:6px 10px}.cell{min-height:60px;padding:4px 3px}.badge-opex,.badge-closed{font-size:7px;padding:0 2px}.cellpnl{font-size:9px}.cellcount{font-size:8px}.callegend{flex-wrap:wrap;font-size:10px}.facts{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.modalback{padding:0}.modal{border-radius:14px 14px 0 0;margin-top:auto;max-height:96vh;overflow:auto}.modalhead{position:sticky;top:0;background:var(--panel);z-index:2}.modalbody{padding:15px}.modalfoot{position:sticky;bottom:0;background:var(--panel)}.bname{width:105px}.amt{width:68px}.statstable{min-width:760px;font-size:10px}.statstable th,.statstable td{padding:8px 7px}.hint{font-size:10px}.drop{padding:40px 16px}
 }
 </style>
 </head>
@@ -124,9 +146,9 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   <div class="summary">
    <div class="card stat"><div class="lbl">Month P/L</div><div class="value" id="cm">$0</div></div><div class="card stat"><div class="lbl">Green days</div><div class="value pos" id="cg">0</div></div><div class="card stat"><div class="lbl">Red days</div><div class="value neg" id="cr">0</div></div>
   </div>
-  <div class="calgrid"><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div><div class="dow">Sun</div></div>
+  <div class="calgrid"><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div><div class="dow">Sun</div><div class="dow wk">Week</div></div>
   <div class="calgrid" id="cal"></div>
-  <div class="callegend"><span>🟢 profitable</span><span>🔴 loss</span><span>🔵 today</span></div>
+  <div class="callegend"><span>🟢 profitable</span><span>🔴 loss</span><span style="color:var(--accent)">▢ blue outline = journaled</span><span style="color:var(--amber)">OPEX = monthly expiration</span><span>▨ CLOSED = market holiday</span></div>
  </section>
 
  <section class="view" id="daily">
@@ -170,7 +192,8 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   <div class="section">Performance by day of week</div>
   <div class="tablewrap card"><table class="statstable"><thead><tr><th>Day</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Net P/L</th><th>Avg Win</th><th>Best Win</th></tr></thead><tbody id="dayStats"></tbody></table></div>
 
-  <div class="section">P/L by setup</div><div class="breakdown" id="sbreak"></div>
+  <div class="section">Performance by setup / playbook</div>
+  <div class="tablewrap card"><table class="statstable"><thead><tr><th>Setup</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Net P/L</th></tr></thead><tbody id="setupStats"></tbody></table></div>
   <div class="section">P/L by entry emotion</div><div class="breakdown" id="sebreak"></div>
   <div class="section">P/L by symbol</div><div class="breakdown" id="symbreak"></div>
  </section>
@@ -226,13 +249,18 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
      <div class="field"><label>Target/Exit</label><input id="btf_exit" type="number" step="any"></div>
      <div class="field"><label>Qty</label><input id="btf_qty" type="number" step="1" value="1"></div>
     </div>
+    <div class="qtygrid" style="margin-top:8px;grid-template-columns:1fr 1fr 2fr">
+     <div class="field"><label>Date</label><input id="btf_date" type="date"></div>
+     <div class="field"><label>Time</label><input id="btf_time" type="time"></div>
+     <div class="field"><label>Setup / playbook</label><select id="btf_setup"></select></div>
+    </div>
     <div class="rpreview" id="btpreview" style="margin-top:12px"></div>
     <div style="margin-top:12px"><button class="btn" id="btadd">Add trade</button></div>
    </div>
 
    <div class="section">Backtest log</div>
    <div class="card" style="overflow:hidden">
-    <div class="btloghead"><div>Date</div><div>Symbol</div><div>Dir</div><div>Entry</div><div>Stop</div><div>Exit</div><div>Qty</div><div>R</div><div>P/L</div><div></div></div>
+    <div class="btloghead"><div>Date</div><div>Time</div><div>Symbol</div><div>Dir</div><div>Setup</div><div>Entry</div><div>Stop</div><div>Exit</div><div>Risk pts</div><div>Rwd pts</div><div>Qty</div><div>R</div><div>P/L</div><div></div></div>
     <div id="btrows"></div>
    </div>
 
@@ -254,7 +282,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   <div class="modalhead"><div><h2 id="mtitle">Trade</h2><div class="meta" id="mmeta">—</div></div><div><button class="close" id="close">✕</button><div class="badge" id="mbadge">$0</div></div></div>
   <div class="modalbody">
    <div class="facts" id="facts"></div>
-   <div class="field"><label>Setup / strategy</label><input id="setup" placeholder="e.g. 9 EMA reclaim, ORB retest, VAH fade..."></div>
+   <div class="field"><label>Setup / playbook</label><select id="setup"></select></div>
    <div class="two"><div class="field"><label>Emotion at entry</label><div class="emos" id="entryemos"></div></div><div class="field"><label>Emotion at exit</label><div class="emos" id="exitemos"></div></div></div>
    <div class="field"><label>Entry notes</label><textarea id="entrynote" placeholder="What did you see? Why did you take it?"></textarea></div>
    <div class="field"><label>Exit notes</label><textarea id="exitnote" placeholder="Why did you exit? Target, stop, fear, early exit, etc."></textarea></div>
@@ -269,7 +297,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 <script>
 (()=> {
 const KEY='blotter-trade-journal-v2';
-let S={trades:[],daily:{},weekly:{},monthly:{},backtests:{}}, modalId=null;
+let S={trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[]}, modalId=null;
 let cursors={daily:new Date(),weekly:new Date(),monthly:new Date(),calendar:new Date()};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -304,16 +332,148 @@ function filtered(){let sy=$('fs').value,re=$('fr').value,se=$('fset').value;ret
 function renderTrades(){populate();curve('svg','total','first','last');let l=filtered();$('count').textContent=`${l.length} of ${S.trades.length} trades`;if(!l.length){$('rows').innerHTML=`<div class="empty">${S.trades.length?'No trades match your filters.':'No trades imported yet.'}</div>`;return}$('rows').innerHTML=l.map(t=>{let d=t.dateISO?new Date(t.dateISO):null,j=t.setup||t.entryNotes||t.exitNotes||t.emoEntry||t.emoExit;return `<div class="row" data-id="${t.id}"><div class="date">${d?d.toLocaleDateString(undefined,{month:'short',day:'2-digit'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}):'—'}</div><div><b>${esc(t.symbol)}</b></div><div class="side ${direction(t).toLowerCase()=='long'?'long':direction(t).toLowerCase()=='short'?'short':'unknown'}">${esc(direction(t))}</div><div class="setup">${esc(t.setup||'No setup logged')}</div><div class="num">${t.qty}</div><div class="num">${t.buyPrice??'—'}</div><div class="pnl ${t.pnl>=0?'pos':'neg'}">${money(t.pnl)}</div><div class="flag">${j?'✓':''}</div><div>›</div></div>`}).join('');document.querySelectorAll('.row').forEach(r=>r.onclick=()=>openModal(r.dataset.id))}
 ['fs','fr','fset'].forEach(id=>$(id).onchange=renderTrades);
 const entryEmos=[['calm','Calm'],['confident','Confident'],['hesitant','Hesitant'],['fomo','FOMO'],['revenge','Revenge']],exitEmos=[['satisfied','Satisfied'],['relieved','Relieved'],['fearful','Fearful'],['frustrated','Frustrated'],['regret','Regret']];
-function openModal(id){let t=S.trades.find(x=>x.id==id);if(!t)return;modalId=id;let d=t.dateISO?new Date(t.dateISO):null;$('mtitle').textContent=t.symbol;$('mmeta').textContent=d?d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}):'Date unknown';$('mbadge').textContent=money(t.pnl);$('mbadge').className='badge '+(t.pnl>=0?'pos':'neg');$('facts').innerHTML=[['Direction',direction(t)],['Qty',t.qty],['Entry',t.buyPrice??'—'],['Exit',t.sellPrice??'—'],['Entry time',entryTime(t)||'—'],['Exit time',(t.soldTs||t.boughtTs)||'—'],['Duration',t.duration||'—'],['Symbol',t.symbol]].map(x=>`<div class="fact"><small>${x[0]}</small><div>${esc(x[1])}</div></div>`).join('');$('setup').value=t.setup||'';$('entrynote').value=t.entryNotes||'';$('exitnote').value=t.exitNotes||'';emoButtons('entryemos',entryEmos,t.emoEntry);emoButtons('exitemos',exitEmos,t.emoExit);renderShots(t);$('back').classList.add('show')}
+function openModal(id){let t=S.trades.find(x=>x.id==id);if(!t)return;modalId=id;let d=t.dateISO?new Date(t.dateISO):null;$('mtitle').textContent=t.symbol;$('mmeta').textContent=d?d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}):'Date unknown';$('mbadge').textContent=money(t.pnl);$('mbadge').className='badge '+(t.pnl>=0?'pos':'neg');$('facts').innerHTML=[['Direction',direction(t)],['Qty',t.qty],['Entry',t.buyPrice??'—'],['Exit',t.sellPrice??'—'],['Entry time',entryTime(t)||'—'],['Exit time',(t.soldTs||t.boughtTs)||'—'],['Duration',t.duration||'—'],['Symbol',t.symbol]].map(x=>`<div class="fact"><small>${x[0]}</small><div>${esc(x[1])}</div></div>`).join('');$('setup').innerHTML=setupOptions(t.setup||'');$('setup').value=t.setup||'';$('entrynote').value=t.entryNotes||'';$('exitnote').value=t.exitNotes||'';emoButtons('entryemos',entryEmos,t.emoEntry);emoButtons('exitemos',exitEmos,t.emoExit);renderShots(t);$('back').classList.add('show')}
 function emoButtons(id,list,val){$(id).innerHTML=list.map(x=>`<button class="emo ${x[0]==val?'sel':''}" data-val="${x[0]}">${x[1]}</button>`).join('');$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{let t=S.trades.find(x=>x.id==modalId);if(!t)return;let field=id=='entryemos'?'emoEntry':'emoExit';t[field]=t[field]==b.dataset.val?'':b.dataset.val;save();emoButtons(id,list,t[field]);renderTrades()})}
 function current(){return S.trades.find(t=>t.id==modalId)}
-$('setup').oninput=e=>{let t=current();if(t){t.setup=e.target.value;save()}};$('entrynote').oninput=e=>{let t=current();if(t){t.entryNotes=e.target.value;save()}};$('exitnote').oninput=e=>{let t=current();if(t){t.exitNotes=e.target.value;save()}};
+$('setup').onchange=e=>{handleSetupSelect(e.target,val=>{let t=current();if(t){t.setup=val;save();renderTrades();}})};$('entrynote').oninput=e=>{let t=current();if(t){t.entryNotes=e.target.value;save()}};$('exitnote').oninput=e=>{let t=current();if(t){t.exitNotes=e.target.value;save()}};
 function renderShots(t){$('shots').innerHTML=(t.screenshots||[]).map((s,i)=>`<div class="thumb"><img src="${s}"><button data-i="${i}">✕</button></div>`).join('');$('shots').querySelectorAll('button').forEach(b=>b.onclick=()=>{t.screenshots.splice(+b.dataset.i,1);save();renderShots(t)})}
 $('shotzone').onclick=()=>$('shotsin').click();$('shotsin').onchange=()=>{addShots($('shotsin').files);$('shotsin').value=''};async function addShots(files){let t=current();if(!t)return;t.screenshots=t.screenshots||[];for(let f of files){if(!f.type.startsWith('image/'))continue;let r=new FileReader();await new Promise(res=>{r.onload=()=>{t.screenshots.push(r.result);res()};r.readAsDataURL(f)});}save();renderShots(t)}
 function closeModal(){$('back').classList.remove('show');modalId=null;renderAll()}$('close').onclick=closeModal;$('done').onclick=closeModal;$('back').onclick=e=>{if(e.target===$('back'))closeModal()};
 function tradesDate(d){let k=key(d);return S.trades.filter(t=>t.dateISO&&key(new Date(t.dateISO))==k)}
 function startWeek(d){let x=new Date(d),n=(x.getDay()+6)%7;x.setDate(x.getDate()-n);x.setHours(0,0,0,0);return x}
-function renderCalendar(){let d=cursors.calendar,y=d.getFullYear(),m=d.getMonth();$('cc').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});let mt=S.trades.filter(t=>t.dateISO&&new Date(t.dateISO).getFullYear()==y&&new Date(t.dateISO).getMonth()==m),by={};mt.forEach(t=>{let k=key(new Date(t.dateISO));by[k]??={p:0,c:0};by[k].p+=t.pnl;by[k].c++});let net=mt.reduce((a,t)=>a+t.pnl,0),days=Object.values(by);$('cm').textContent=money(net);$('cm').className='value '+(net>=0?'pos':'neg');$('cg').textContent=days.filter(x=>x.p>0).length;$('cr').textContent=days.filter(x=>x.p<0).length;let first=new Date(y,m,1),off=(first.getDay()+6)%7,total=Math.ceil((off+new Date(y,m+1,0).getDate())/7)*7,start=new Date(y,m,1-off),today=key(new Date());let all={};S.trades.forEach(t=>{if(t.dateISO){let k=key(new Date(t.dateISO));all[k]??={p:0,c:0};all[k].p+=t.pnl;all[k].c++}});let cells='';for(let i=0;i<total;i++){let x=new Date(start);x.setDate(start.getDate()+i);if(x.getMonth()!=m){cells+='<div></div>';continue}let k=key(x),e=by[k],cl=e?(e.p>=0?'cell win':'cell loss'):'cell';if(k==today)cl+=' today';cells+=`<div class="${cl}" ${e?`data-k="${k}"`:''}><div class="daynum">${x.getDate()}</div>${e?`<div><div class="cellpnl ${e.p>=0?'pos':'neg'}">${short(e.p)}</div><div class="cellcount">${e.c} trade${e.c==1?'':'s'}</div></div>`:'<div></div>'}</div>`} $('cal').innerHTML=cells;document.querySelectorAll('#cal [data-k]').forEach(c=>c.onclick=()=>{let [a,b,e]=c.dataset.k.split('-').map(Number);cursors.daily=new Date(a,b-1,e);navigate('daily')})}
+// ===== SETUPS / PLAYBOOK =====
+function setupOptions(sel){
+ let list=S.setups||[];
+ return '<option value="">— no setup —</option>'
+  + list.map(x=>`<option value="${esc(x)}"${x===sel?' selected':''}>${esc(x)}</option>`).join('')
+  + '<option value="__new__">+ Add new setup…</option>';
+}
+function handleSetupSelect(el,onPick){
+ if(el.value==='__new__'){
+  let name=(prompt('Name this setup / playbook:')||'').trim();
+  if(name){
+   S.setups=S.setups||[];
+   if(!S.setups.includes(name)){ S.setups.push(name); S.setups.sort(); }
+   save();
+   el.innerHTML=setupOptions(name);
+   el.value=name;
+   onPick&&onPick(name);
+  } else {
+   el.innerHTML=setupOptions('');
+   el.value='';
+   onPick&&onPick('');
+  }
+ } else {
+  onPick&&onPick(el.value);
+ }
+}
+// collect setups already used in trades so old free-text entries still appear
+function syncSetups(){
+ S.setups=S.setups||[];
+ let seen=new Set(S.setups);
+ S.trades.forEach(t=>{ if(t.setup&&!seen.has(t.setup)){ S.setups.push(t.setup); seen.add(t.setup); } });
+ Object.values(S.backtests||{}).forEach(bt=>(bt.trades||[]).forEach(t=>{
+  if(t.setup&&!seen.has(t.setup)){ S.setups.push(t.setup); seen.add(t.setup); }
+ }));
+ S.setups.sort();
+}
+
+// ===== MARKET CALENDAR (OPEX + holidays) =====
+// Third Friday of the month = monthly options expiration
+function isOpex(d){
+ if(d.getDay()!==5) return false;
+ return Math.ceil(d.getDate()/7)===3;
+}
+// US market holidays (full closures). Dates are observed dates.
+const HOLIDAYS={
+ '2025-01-01':'New Year','2025-01-20':'MLK Day','2025-02-17':'Presidents Day',
+ '2025-04-18':'Good Friday','2025-05-26':'Memorial Day','2025-06-19':'Juneteenth',
+ '2025-07-04':'Independence Day','2025-09-01':'Labor Day','2025-11-27':'Thanksgiving','2025-12-25':'Christmas',
+ '2026-01-01':'New Year','2026-01-19':'MLK Day','2026-02-16':'Presidents Day',
+ '2026-04-03':'Good Friday','2026-05-25':'Memorial Day','2026-06-19':'Juneteenth',
+ '2026-07-03':'Independence Day','2026-09-07':'Labor Day','2026-11-26':'Thanksgiving','2026-12-25':'Christmas',
+ '2027-01-01':'New Year','2027-01-18':'MLK Day','2027-02-15':'Presidents Day',
+ '2027-03-26':'Good Friday','2027-05-31':'Memorial Day','2027-06-18':'Juneteenth',
+ '2027-07-05':'Independence Day','2027-09-06':'Labor Day','2027-11-25':'Thanksgiving','2027-12-24':'Christmas'
+};
+function holidayName(d){ return HOLIDAYS[key(d)]||null; }
+// a day counts as journaled if it has session notes, or any trade that has been journaled
+function isJournaled(d){
+ let k=key(d);
+ if(S.daily[k] && S.daily[k].trim()) return true;
+ return S.trades.some(t=>t.dateISO && key(new Date(t.dateISO))===k &&
+   (t.setup||t.entryNotes||t.exitNotes||t.emoEntry||t.emoExit));
+}
+
+function renderCalendar(){
+ let d=cursors.calendar,y=d.getFullYear(),m=d.getMonth();
+ $('cc').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+
+ // day buckets across ALL trades (so week totals work across month edges)
+ let all={};
+ S.trades.forEach(t=>{ if(t.dateISO){ let k=key(new Date(t.dateISO)); all[k]??={p:0,c:0}; all[k].p+=t.pnl; all[k].c++; } });
+
+ let mt=S.trades.filter(t=>t.dateISO&&new Date(t.dateISO).getFullYear()==y&&new Date(t.dateISO).getMonth()==m);
+ let by={};
+ mt.forEach(t=>{ let k=key(new Date(t.dateISO)); by[k]??={p:0,c:0}; by[k].p+=t.pnl; by[k].c++; });
+ let net=mt.reduce((a,t)=>a+t.pnl,0), days=Object.values(by);
+ $('cm').textContent=money(net); $('cm').className='value '+(net>=0?'pos':'neg');
+ $('cg').textContent=days.filter(x=>x.p>0).length;
+ $('cr').textContent=days.filter(x=>x.p<0).length;
+
+ let first=new Date(y,m,1), off=(first.getDay()+6)%7;
+ let total=Math.ceil((off+new Date(y,m+1,0).getDate())/7)*7;
+ let start=new Date(y,m,1-off), today=key(new Date());
+
+ let cells='';
+ for(let i=0;i<total;i++){
+  let x=new Date(start); x.setDate(start.getDate()+i);
+  let inMonth=x.getMonth()==m, k=key(x), e=inMonth?by[k]:null;
+
+  if(inMonth){
+   let cl='cell';
+   if(e) cl+= e.p>=0?' win':' loss';
+   if(isJournaled(x)) cl+=' journaled';
+   let hol=holidayName(x);
+   if(hol) cl+=' closed';
+   if(k==today) cl+=' today';
+
+   let badges='';
+   if(isOpex(x)) badges+='<span class="badge-opex" title="Monthly options expiration">OPEX</span>';
+   if(hol) badges+=`<span class="badge-closed" title="${esc(hol)}">CLOSED</span>`;
+
+   cells+=`<div class="${cl}" ${e?`data-k="${k}"`:''}>
+     <div class="cellhead"><span class="daynum">${x.getDate()}</span>${badges}</div>
+     ${e?`<div><div class="cellpnl ${e.p>=0?'pos':'neg'}">${short(e.p)}</div><div class="cellcount">${e.c} trade${e.c==1?'':'s'}</div></div>`
+        :`<div class="cellcount">${hol?esc(hol):''}</div>`}
+   </div>`;
+  } else {
+   cells+='<div class="cell blank"></div>';
+  }
+
+  // after Sunday (7th cell of the row) append the week summary cell
+  if(i%7===6){
+   let ws=new Date(x); ws.setDate(x.getDate()-6);
+   let wp=0, wc=0, wWins=0;
+   for(let j=0;j<7;j++){
+    let wd=new Date(ws); wd.setDate(ws.getDate()+j);
+    let en=all[key(wd)];
+    if(en){ wp+=en.p; wc+=en.c; if(en.p>0) wWins++; }
+   }
+   cells+=`<div class="weekcell${wc?(wp>=0?' win':' loss'):''}">
+     <div class="wklbl">Week</div>
+     ${wc?`<div class="wkpnl ${wp>=0?'pos':'neg'}">${short(wp)}</div><div class="wksub">${wc} trade${wc==1?'':'s'}</div>`:'<div class="wksub">—</div>'}
+   </div>`;
+  }
+ }
+ $('cal').innerHTML=cells;
+ document.querySelectorAll('#cal [data-k]').forEach(c=>c.onclick=()=>{
+  let [a,b,e]=c.dataset.k.split('-').map(Number);
+  cursors.daily=new Date(a,b-1,e);
+  navigate('daily');
+ });
+}
+
 $('cp').onclick=()=>{cursors.calendar.setMonth(cursors.calendar.getMonth()-1);renderCalendar()};$('cn').onclick=()=>{cursors.calendar.setMonth(cursors.calendar.getMonth()+1);renderCalendar()};$('ct').onclick=()=>{cursors.calendar=new Date();renderCalendar()};
 function renderDaily(){let d=cursors.daily,k=key(d),l=tradesDate(d),net=l.reduce((a,t)=>a+t.pnl,0),wins=l.filter(t=>t.pnl>0).length;$('dc').textContent=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});$('dpl').textContent=money(net);$('dpl').className='value '+(net>=0?'pos':'neg');$('dct').textContent=l.length;$('dwr').textContent=l.length?Math.round(wins/l.length*100)+'%':'—';$('dlist').innerHTML=l.length?l.map(t=>`<div class="minirow" data-id="${t.id}"><span><b>${esc(t.symbol)}</b> · <span class="${direction(t).toLowerCase()=='long'?'pos':direction(t).toLowerCase()=='short'?'neg':''}">${esc(direction(t))}</span> · ${esc(t.setup||'no setup')}</span><span class="${t.pnl>=0?'pos':'neg'}">${money(t.pnl)}</span></div>`).join(''):'<div class="empty" style="padding:25px">No trades this day.</div>';document.querySelectorAll('#dlist [data-id]').forEach(x=>x.onclick=()=>openModal(x.dataset.id));$('dnote').value=S.daily[k]||''}
 $('dp').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()-1);renderDaily()};$('dn').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()+1);renderDaily()};$('dsave').onclick=()=>{S.daily[key(cursors.daily)]=$('dnote').value;save();toast('Daily notes saved')};
@@ -328,7 +488,17 @@ function renderMonthly(){let d=cursors.monthly,l=monthTrades(d),net=l.reduce((a,
 $('mp').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()-1);renderMonthly()};$('mn').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()+1);renderMonthly()};$('msave').onclick=()=>{S.monthly[monthKey(cursors.monthly)]=$('mnote').value;save();toast('Monthly notes saved')};
 function renderStats(){curve('svg2','total2','first2','last2');let l=S.trades;if(!l.length){$('statsgrid').innerHTML='';$('sidebreak').innerHTML='';$('timeStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';$('dayStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';return}let wins=l.filter(t=>t.pnl>0),loss=l.filter(t=>t.pnl<0),net=l.reduce((a,t)=>a+t.pnl,0),gw=wins.reduce((a,t)=>a+t.pnl,0),gl=Math.abs(loss.reduce((a,t)=>a+t.pnl,0)),pf=gl?gw/gl:(gw?'∞':'0'),aw=wins.length?gw/wins.length:0,al=loss.length?loss.reduce((a,t)=>a+t.pnl,0)/loss.length:0,best=l.reduce((a,t)=>t.pnl>a.pnl?t:a,l[0]),worst=l.reduce((a,t)=>t.pnl<a.pnl?t:a,l[0]);let cards=[['Net P/L',money(net),net>=0?'pos':'neg'],['Total trades',l.length,''],['Win rate',(wins.length/l.length*100).toFixed(1)+'%',''],['Profit factor',pf,''],['Avg win',money(aw),'pos'],['Avg loss',money(al),'neg'],['Best trade',money(best.pnl),'pos'],['Worst trade',money(worst.pnl),'neg'],['Journaled',l.filter(t=>t.setup||t.entryNotes||t.exitNotes||t.emoEntry).length+' / '+l.length,'']];$('statsgrid').innerHTML=cards.map(x=>`<div class="card stat"><div class="lbl">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');
 let sides={Long:[],Short:[]};l.forEach(t=>{let s=direction(t);if(sides[s])sides[s].push(t)});let sideEntries=Object.entries(sides).filter(([k,v])=>v.length);if(!sideEntries.length)$('sidebreak').innerHTML='<div class="muted">No direction data.</div>';else{$('sidebreak').innerHTML=sideEntries.map(([side,a])=>{let sw=a.filter(t=>t.pnl>0),sl=a.filter(t=>t.pnl<0),sp=a.reduce((x,t)=>x+t.pnl,0),savg=sw.length?sw.reduce((x,t)=>x+t.pnl,0)/sw.length:0,sbest=sw.length?Math.max(...sw.map(t=>t.pnl)):null;return `<div class="brow"><div class="bname ${side==='Long'?'pos':'neg'}">${side} <small>(${a.length})</small></div><div class="barbg"><div class="bar ${sp>=0?'pos':'neg'}" style="width:${Math.max(4,Math.abs(sp)/(Math.max(1,...sideEntries.map(([_,v])=>Math.abs(v.reduce((x,t)=>x+t.pnl,0)))))*100)}%"></div></div><div class="amt ${sp>=0?'pos':'neg'}">${money(sp)} · ${sw.length}W/${sl.length}L</div></div><div class="hint" style="margin:-4px 0 4px">${(sw.length/a.length*100).toFixed(1)}% win · avg win ${sw.length?money(savg):'—'} · best win ${sbest===null?'—':money(sbest)}</div>`}).join('')}
-let times=l.filter(t=>entryDate(t));$('timeStats').innerHTML=statRows(times,t=>bucket15(entryDate(t)),timeLabel,(a,b)=>a-b);$('dayStats').innerHTML=statRows(times,t=>entryDate(t).getDay(),k=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][k],(a,b)=>{let order=[1,2,3,4,5,6,0];return order.indexOf(a)-order.indexOf(b)});breakdown('sbreak',l,t=>t.setup);breakdown('sebreak',l,t=>t.emoEntry);breakdown('symbreak',l,t=>t.symbol)}
+let times=l.filter(t=>entryDate(t));$('timeStats').innerHTML=statRows(times,t=>bucket15(entryDate(t)),timeLabel,(a,b)=>a-b);$('dayStats').innerHTML=statRows(times,t=>entryDate(t).getDay(),k=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][k],(a,b)=>{let order=[1,2,3,4,5,6,0];return order.indexOf(a)-order.indexOf(b)});renderSetupStats(l);breakdown('sebreak',l,t=>t.emoEntry);breakdown('symbreak',l,t=>t.symbol)}
+function renderSetupStats(l){
+ let g={};
+ l.forEach(t=>{ if(!t.setup)return; g[t.setup]??={n:0,w:0,ls:0,p:0}; let v=g[t.setup]; v.n++; v.p+=t.pnl; if(t.pnl>0)v.w++; else if(t.pnl<0)v.ls++; });
+ let rows=Object.entries(g).sort((a,b)=>b[1].p-a[1].p);
+ if(!rows.length){ $('setupStats').innerHTML='<tr><td colspan="6" class="muted">No setups tagged yet. Tag trades with a setup to see stats here.</td></tr>'; return; }
+ $('setupStats').innerHTML=rows.map(([name,v])=>{
+  let wr=v.n?(v.w/v.n*100):0;
+  return `<tr><td>${esc(name)}</td><td>${v.n}</td><td class="pos">${v.w}</td><td class="neg">${v.ls}</td><td>${wr.toFixed(1)}%</td><td class="${v.p>=0?'pos':'neg'}">${money(v.p)}</td></tr>`;
+ }).join('');
+}
 // ===================== BACKTEST =====================
 const PTVAL={MNQ:2,NQ:20,MES:5,ES:50,MGC:10,GC:100,MCL:100,CL:1000,M2K:5,RTY:50,MYM:0.5,YM:5,MBT:0.1,BTC:5};
 let btActiveId=null, btCurveMode='R', btTab='dir';
@@ -413,11 +583,15 @@ function renderBtStats(){
   let d=t.dateISO?new Date(t.dateISO):null;
   return `<div class="btlogrow" data-id="${t.id}">
    <div class="date">${d?d.toLocaleDateString(undefined,{month:'short',day:'2-digit'}):'—'}</div>
+   <div class="date">${d?d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}):'—'}</div>
    <div><b>${esc(t.symbol)}</b></div>
    <div class="side ${t.direction==='Long'?'long':'short'}">${esc(t.direction)}</div>
+   <div class="setup">${esc(t.setup||'—')}</div>
    <div class="num">${t.entry}</div>
    <div class="num">${t.stop}</div>
    <div class="num">${t.exit}</div>
+   <div class="num neg">${t.risk.toFixed(2)}</div>
+   <div class="num ${t.reward>=0?'pos':'neg'}">${t.reward.toFixed(2)}</div>
    <div class="num">${t.qty}</div>
    <div class="num ${t.r>=0?'pos':'neg'}">${t.r.toFixed(2)}R</div>
    <div class="pnl ${t.pnl>=0?'pos':'neg'}">${money(t.pnl)}</div>
@@ -751,21 +925,44 @@ document.addEventListener('paste',e=>{
   if(f.type && f.type.startsWith('image/')){ e.preventDefault(); btRunOCR(f); return; }
  }
 });
+function btResetForm(){
+ $('btf_symbol').value=''; $('btf_entry').value=''; $('btf_stop').value=''; $('btf_exit').value=''; $('btf_qty').value=1;
+ let now=new Date();
+ $('btf_date').value=key(now);
+ $('btf_time').value=pad(now.getHours())+':'+pad(now.getMinutes());
+ $('btpreview').innerHTML=''; $('btocrpreview').className='ocrpreview';
+}
+$('btf_setup').onchange=e=>handleSetupSelect(e.target);
 $('btadd').onclick=()=>{
  let bt=S.backtests?.[btActiveId]; if(!bt)return;
  let symbol=$('btf_symbol').value.trim().toUpperCase(), direction=$('btf_dir').value;
  let entry=+$('btf_entry').value, stop=+$('btf_stop').value, exitP=+$('btf_exit').value, qty=+$('btf_qty').value||1;
  if(!symbol||!entry||!stop||!exitP){ toast('Fill symbol, entry, stop, and target first'); return; }
+ let setup=$('btf_setup').value==='__new__'?'':$('btf_setup').value;
+ // build the timestamp from the date + time fields, falling back to now
+ let dv=$('btf_date').value, tv=$('btf_time').value, when;
+ if(dv){
+  let [Y,M,D]=dv.split('-').map(Number);
+  let [h,mi]=(tv||'00:00').split(':').map(Number);
+  when=new Date(Y,M-1,D,h||0,mi||0);
+ } else when=new Date();
  bt.trades=bt.trades||[];
- bt.trades.push({id:uid(), dateISO:new Date().toISOString(), symbol, direction, entry, stop, exit:exitP, qty});
+ bt.trades.push({id:uid(), dateISO:when.toISOString(), symbol, direction, entry, stop, exit:exitP, qty, setup});
  save();
- $('btf_symbol').value=''; $('btf_entry').value=''; $('btf_stop').value=''; $('btf_exit').value=''; $('btf_qty').value=1;
- $('btpreview').innerHTML=''; $('btocrpreview').className='ocrpreview';
+ btResetForm();
  toast('Backtest trade added');
  renderBtStats();
 };
 function renderBacktest(){
  S.backtests=S.backtests||{};
+ syncSetups();
+ let curSetup=$('btf_setup').value;
+ $('btf_setup').innerHTML=setupOptions(curSetup&&curSetup!=='__new__'?curSetup:'');
+ if(!$('btf_date').value){
+  let now=new Date();
+  $('btf_date').value=key(now);
+  $('btf_time').value=pad(now.getHours())+':'+pad(now.getMinutes());
+ }
  if(!btActiveId||!S.backtests[btActiveId]) btActiveId=Object.keys(S.backtests)[0]||null;
  btChips();
  renderBtConfig();
@@ -773,7 +970,7 @@ function renderBacktest(){
 }
 
 function renderAll(){ $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest()}
-try{let x=localStorage.getItem(KEY);if(x)S=Object.assign(S,JSON.parse(x));S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});save()}catch(e){}renderAll();
+try{let x=localStorage.getItem(KEY);if(x)S=Object.assign(S,JSON.parse(x));S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});S.setups=S.setups||[];syncSetups();save()}catch(e){}renderAll();
 })();
 </script>
 </body>
