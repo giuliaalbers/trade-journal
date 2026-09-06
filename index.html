@@ -70,7 +70,9 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
  .btlogrow>div{display:flex;justify-content:space-between;padding:2px 0}
  .btlogrow .num{text-align:left;padding-right:0}
 }
-.ocrzone{width:100%;min-height:64px;border:1.5px dashed var(--border);border-radius:8px;padding:12px;text-align:center;color:var(--text);background:var(--bg);font:12.5px monospace;transition:.15s;box-sizing:border-box;resize:vertical}
+.ocrzone{width:100%;min-height:64px;border:1.5px dashed var(--border);border-radius:8px;padding:12px;text-align:center;color:var(--text);background:var(--bg);font:12.5px monospace;transition:.15s;box-sizing:border-box;overflow:auto;max-height:220px}
+.ocrzone:empty:before{content:attr(data-ph);color:var(--faint)}
+.ocrzone img{max-width:100%;border-radius:6px}
 .ocrzone:hover,.ocrzone:focus{border-color:var(--accent);color:var(--text);outline:none}
 .ocrzone.drag{border-color:var(--accent);background:var(--panel2)}
 .ocrzone.busy{border-style:solid;color:var(--accent)}
@@ -209,7 +211,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    <div class="card" style="padding:16px 18px;margin-bottom:16px">
     <div class="field" style="margin-bottom:10px">
      <label>Paste or drop a screenshot of the TradingView position box — reads Target, Stop, and Risk/Reward off the image</label>
-     <textarea class="ocrzone" id="btocrzone" placeholder="Click here, then press Cmd/Ctrl+V to paste the copied position tool"></textarea>
+     <div class="ocrzone" id="btocrzone" contenteditable="true" data-ph="Click here, then press Cmd/Ctrl+V to paste the copied position tool"></div>
      <div id="btocrzone-msg" style="font-size:11px;color:var(--faint);margin-top:6px">Or drop an image file onto the box above.</div>
      <div style="margin-top:6px"><button class="ghost" id="btocrbrowse" style="padding:5px 12px;font-size:11.5px">Choose image file</button></div>
      <input hidden type="file" id="btocrfile" accept="image/*">
@@ -509,7 +511,7 @@ async function btRunOCR(source){
   toast('OCR failed');
  }
  zone.classList.remove('busy');
- btocrzone.value='';
+ btocrzone.innerHTML='';
  $('btocrzone-msg').textContent='Or drop an image file onto the box above.';
 }
 const btocrzone=$('btocrzone');
@@ -525,15 +527,13 @@ function btHandlePaste(e){
  let types=[...cd.types||[]];
  let items=cd.items||[];
 
- // Collect debug info about EVERYTHING on the clipboard, whatever we end up using.
  let debugParts=[];
  debugParts.push(`types present: ${types.join(', ')||'(none)'}`);
  for(let i=0;i<items.length;i++){
   debugParts.push(`item[${i}] kind=${items[i].kind} type=${items[i].type}`);
  }
 
- // 1) IMAGE FIRST. TradingView's copy puts a picture of the position tool on the
- // clipboard, often alongside a throwaway text label. Text must never win here.
+ // 1) direct image on the clipboard
  for(let item of items){
   if(item.type && item.type.startsWith('image/')){
    e.preventDefault();
@@ -541,42 +541,53 @@ function btHandlePaste(e){
    if(file){ btRunOCR(file); return; }
   }
  }
- // also check files[] — some browsers expose pasted images there instead of items[]
  if(cd.files && cd.files.length){
   for(let f of cd.files){
    if(f.type && f.type.startsWith('image/')){ e.preventDefault(); btRunOCR(f); return; }
   }
  }
 
- // 2) No image — fall back to reading any text formats.
- let combined='';
- for(let t of types){
-  if(t.startsWith('image/')) continue;
-  try{
-   let d=cd.getData(t);
-   if(d){ combined += '\n'+d; debugParts.push(`[${t}] (${d.length} chars): ${d.slice(0,300)}`); }
-  }catch(err){}
- }
- let rawDump=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--dim)">Raw clipboard data (tap to expand)</summary><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(debugParts.join('\n\n'))}</pre></details>`;
- if(combined.trim()){
-  let parsed=btParseOCRText(combined);
-  let found=['symbol','direction','entry','stop','target','ratio'].filter(k=>parsed[k]!=null);
-  e.preventDefault();
-  $('btocrpreview').className='ocrpreview show';
-  if(found.length){
-   btApplyParsed(parsed);
-   $('btocrpreview').innerHTML=`<b>Parsed from clipboard text:</b> `+found.map(k=>{
-     let v=k==='entry'&&parsed.entryDerived ? parsed.entry.toFixed(2)+' (derived)' : parsed[k];
-     return `${k}: <b>${esc(v)}</b>`;
-   }).join(' · ')+`<br>No image was on the clipboard — only text.${rawDump}`;
-   toast(`Parsed ${found.length} field${found.length==1?'':'s'} from text`);
-  } else {
-   $('btocrpreview').innerHTML=`Clipboard had text but no image, and nothing matched.${rawDump}`;
+ // 2) No image handed to us directly. DON'T preventDefault — let the browser
+ // paste into the contenteditable box, then look at what actually landed.
+ // Safari in particular delivers pasted pictures this way rather than via items[].
+ setTimeout(()=>{
+  let img=btocrzone.querySelector('img');
+  if(img && img.src){
+   btocrzone.innerHTML='';
+   btRunOCR(img.src);
+   return;
   }
-  return;
- }
- $('btocrpreview').className='ocrpreview show';
- $('btocrpreview').innerHTML=`Clipboard appears empty.${rawDump}`;
+  // no image landed — fall back to reading text
+  let pastedText=(btocrzone.innerText||'').trim();
+  let combined=pastedText;
+  for(let t of types){
+   if(t.startsWith('image/')) continue;
+   try{
+    let d=cd.getData(t);
+    if(d){ combined += '\n'+d; debugParts.push(`[${t}] (${d.length} chars): ${d.slice(0,300)}`); }
+   }catch(err){}
+  }
+  debugParts.push(`box HTML after paste (${btocrzone.innerHTML.length} chars): ${btocrzone.innerHTML.slice(0,400)}`);
+  let rawDump=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--dim)">Raw clipboard data (tap to expand)</summary><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(debugParts.join('\n\n'))}</pre></details>`;
+  $('btocrpreview').className='ocrpreview show';
+  if(combined.trim()){
+   let parsed=btParseOCRText(combined);
+   let found=['symbol','direction','entry','stop','target','ratio'].filter(k=>parsed[k]!=null);
+   if(found.length){
+    btApplyParsed(parsed);
+    $('btocrpreview').innerHTML=`<b>Parsed from clipboard text:</b> `+found.map(k=>{
+      let v=k==='entry'&&parsed.entryDerived ? parsed.entry.toFixed(2)+' (derived)' : parsed[k];
+      return `${k}: <b>${esc(v)}</b>`;
+    }).join(' · ')+`<br>No image landed in the box — text only.${rawDump}`;
+    toast(`Parsed ${found.length} field${found.length==1?'':'s'} from text`);
+   } else {
+    $('btocrpreview').innerHTML=`No image landed in the box, and the text didn't match anything.${rawDump}`;
+   }
+  } else {
+   $('btocrpreview').innerHTML=`Nothing landed in the box at all.${rawDump}`;
+  }
+  btocrzone.innerHTML='';
+ },120);
 }
 function btApplyParsed(parsed){
  if(parsed.symbol) $('btf_symbol').value=parsed.symbol;
@@ -589,10 +600,24 @@ function btApplyParsed(parsed){
 }
 btocrzone.addEventListener('paste', btHandlePaste);
 // document-level fallback: catch paste even if the zone itself isn't focused, as long as Backtest tab is open
+// document-level fallback: only handles a direct clipboard image when the box
+// isn't focused. It must NOT run the contenteditable path, since nothing will
+// have been pasted into the box in that case.
 document.addEventListener('paste',e=>{
  if(!$('backtest').classList.contains('active')) return;
- if(document.activeElement===btocrzone) return; // already handled above
- btHandlePaste(e);
+ if(btocrzone.contains(document.activeElement)||document.activeElement===btocrzone) return;
+ let cd=e.clipboardData||window.clipboardData;
+ if(!cd) return;
+ for(let item of (cd.items||[])){
+  if(item.type && item.type.startsWith('image/')){
+   e.preventDefault();
+   let f=item.getAsFile();
+   if(f){ btRunOCR(f); return; }
+  }
+ }
+ for(let f of (cd.files||[])){
+  if(f.type && f.type.startsWith('image/')){ e.preventDefault(); btRunOCR(f); return; }
+ }
 });
 $('btadd').onclick=()=>{
  let bt=S.backtests?.[btActiveId]; if(!bt)return;
