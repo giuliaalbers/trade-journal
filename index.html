@@ -477,7 +477,6 @@ function btParseTVClip(html){
     else if(lk==='profitprice'&&hits.profitPrice==null) hits.profitPrice=v;
     else if(lk==='stoplevel'&&hits.stopLevel==null) hits.stopLevel=v;
     else if(lk==='profitlevel'&&hits.profitLevel==null) hits.profitLevel=v;
-    else if(lk==='qty'&&hits.qty==null) hits.qty=v;
    }
    if(typeof v==='string'){
     if(lk==='type'&&/riskreward/i.test(v)) toolType=v;
@@ -491,6 +490,21 @@ function btParseTVClip(html){
  if(toolType){
   if(/short/i.test(toolType)) hits.direction='Short';
   else if(/long/i.test(toolType)) hits.direction='Long';
+ }
+
+ // Entry price: TradingView doesn't store an "entryPrice" key on the
+ // risk/reward tools — the entry is the first anchor point of the drawing.
+ if(hits.entry==null){
+  let pts=null;
+  (function findPoints(node){
+   if(pts||node===null||typeof node!=='object') return;
+   if(Array.isArray(node)){ node.forEach(findPoints); return; }
+   for(let [k,v] of Object.entries(node)){
+    if(k==='points'&&Array.isArray(v)&&v.length&&typeof v[0]==='object'&&typeof v[0].price==='number'){ pts=v; return; }
+    findPoints(v);
+   }
+  })(data);
+  if(pts) hits.entry=pts[0].price;
  }
 
  // clean the symbol: "CME_MINI:MNQ1!" -> "MNQ"
@@ -512,7 +526,8 @@ function btClipToFields(hits){
  let out={};
  if(hits.symbol) out.symbol=hits.symbol;
  if(hits.direction) out.direction=hits.direction;
- if(hits.qty!=null) out.qty=hits.qty;
+ // qty is deliberately NOT taken from the clip: TradingView stores a
+ // risk-based fractional size (e.g. 0.034), not a contract count.
  let entry=hits.entry;
  if(entry!=null) out.entry=entry;
 
@@ -627,9 +642,9 @@ function btHandlePaste(e){
  if(clip && !clip.error){
   e.preventDefault();
   let f=btClipToFields(clip);
-  let found=['symbol','direction','entry','stop','target','qty'].filter(k=>f[k]!=null);
+  let found=['symbol','direction','entry','stop','target'].filter(k=>f[k]!=null);
   if(found.length){
-   btApplyParsed({symbol:f.symbol,direction:f.direction,entry:f.entry,stop:f.stop,target:f.target,qty:f.qty});
+   btApplyParsed({symbol:f.symbol,direction:f.direction,entry:f.entry,stop:f.stop,target:f.target});
    let detail=found.map(k=>{
      let mark=(k==='stop'&&f.stopDerived)||(k==='target'&&f.targetDerived)?' (derived)':'';
      let v=typeof f[k]==='number'?Math.round(f[k]*10000)/10000:f[k];
