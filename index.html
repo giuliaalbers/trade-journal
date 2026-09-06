@@ -28,27 +28,31 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 
 .hint{color:var(--faint);font-size:11px;line-height:1.5;margin:-3px 0 10px}.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.statstable{width:100%;border-collapse:collapse;min-width:760px;font-size:11px}.statstable th{background:var(--panel2);color:var(--faint);font-size:9px;text-transform:uppercase;letter-spacing:.05em;text-align:right;padding:9px 10px;white-space:nowrap}.statstable th:first-child,.statstable td:first-child{text-align:left}.statstable td{padding:9px 10px;border-top:1px solid var(--soft);text-align:right;font:11px monospace;white-space:nowrap}.statstable td:first-child{font-family:inherit;color:var(--dim)}.statstable tr:hover td{background:var(--panel2)}.statstable .muted{color:var(--faint)}
 .breakdown{display:flex;flex-direction:column;gap:8px}.brow{display:flex;align-items:center;gap:10px}.bname{width:150px;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.barbg{height:7px;flex:1;background:var(--panel2);border-radius:5px;overflow:hidden}.bar{height:100%;border-radius:5px}.bar.pos{background:var(--green)}.bar.neg{background:var(--red)}.amt{width:75px;text-align:right;font:11px monospace}
-.calgrid{display:grid;grid-template-columns:repeat(7,1fr) 0.85fr;gap:6px}
-.dow{text-align:center;color:var(--faint);font-size:10px;padding-bottom:4px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr) 0.9fr;gap:5px}
+.dow{text-align:center;color:var(--faint);font-size:10px;padding-bottom:6px;font-weight:600}
 .dow.wk{color:var(--accent)}
-.cell{min-height:88px;border:1px solid var(--border);border-radius:8px;background:var(--panel);padding:6px 7px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.cell{min-height:92px;border:1px solid var(--soft);border-radius:8px;background:var(--panel);padding:7px 7px 8px;display:flex;flex-direction:column;gap:6px;position:relative}
 .cell.blank{background:transparent;border:0}
-.cell.win{background:rgba(62,207,142,.12);border-color:rgba(62,207,142,.3);cursor:pointer}
-.cell.loss{background:rgba(240,85,79,.12);border-color:rgba(240,85,79,.3);cursor:pointer}
-.cell.journaled{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .cell.closed{background:repeating-linear-gradient(45deg,var(--panel),var(--panel) 6px,var(--panel2) 6px,var(--panel2) 12px);border-style:dashed}
+.cell.today{border-color:var(--accent)}
+.cellhead{display:flex;align-items:center;gap:4px;min-height:15px}
+.daynum{font:11px monospace;color:var(--faint)}
+.cell.active .daynum{color:var(--accent);font-weight:700}
 .cell.today .daynum{background:var(--accent);color:#fff;border-radius:4px;padding:0 4px}
-.cellhead{display:flex;align-items:center;justify-content:space-between;gap:3px}
-.daynum{font:11px monospace;color:var(--dim)}
-.badge-opex{font:8px monospace;background:var(--amber);color:#000;border-radius:3px;padding:1px 3px;font-weight:700}
-.badge-closed{font:8px monospace;background:var(--border);color:var(--faint);border-radius:3px;padding:1px 3px}
-.cellpnl{font:700 11px monospace}
-.cellcount{font:9px monospace;color:var(--faint)}
-.weekcell{min-height:88px;border:1px solid var(--soft);border-radius:8px;background:var(--panel2);padding:6px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:2px}
-.weekcell.win{border-color:rgba(62,207,142,.35)}
-.weekcell.loss{border-color:rgba(240,85,79,.35)}
-.wklbl{font:8px monospace;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
-.wkpnl{font:700 12px monospace}
+.badge-opex{font:8px monospace;border:1px solid var(--amber);color:var(--amber);border-radius:9px;padding:0 5px;letter-spacing:.04em}
+.badge-closed{font:8px monospace;background:var(--border);color:var(--faint);border-radius:9px;padding:0 5px}
+.pnlblock{border-radius:6px;padding:6px 7px;cursor:pointer;transition:filter .12s}
+.pnlblock:hover{filter:brightness(1.18)}
+.pnlblock.win{background:rgba(62,207,142,.22);border:1px solid rgba(62,207,142,.45)}
+.pnlblock.loss{background:rgba(240,85,79,.22);border:1px solid rgba(240,85,79,.45)}
+.pnlblock .amt2{font:700 12px monospace;display:block}
+.pnlblock.win .amt2{color:var(--green)}
+.pnlblock.loss .amt2{color:var(--red)}
+.pnlblock .cnt{font:9px monospace;color:var(--dim);display:block;margin-top:1px}
+.cell.journaled .pnlblock{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.holname{font:8.5px monospace;color:var(--faint)}
+.weekcell{min-height:92px;border:1px solid var(--soft);border-radius:8px;background:var(--panel2);padding:7px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:2px}
+.wkpnl{font:700 12.5px monospace}
 .wksub{font:9px monospace;color:var(--faint)}
 .callegend{display:flex;gap:15px;color:var(--faint);font-size:11px;margin-top:14px;flex-wrap:wrap}
 .modalback{display:none;position:fixed;z-index:100;inset:0;background:rgba(5,7,9,.78);backdrop-filter:blur(4px);padding:20px;overflow:auto}.modalback.show{display:flex;justify-content:center;align-items:flex-start}.modal{width:100%;max-width:650px;background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:auto}.modalhead{padding:18px 20px;border-bottom:1px solid var(--soft);display:flex;justify-content:space-between;gap:12px}.modalhead h2{font-size:17px;margin:0}.meta{color:var(--dim);font:11px monospace;margin-top:4px}.close{background:transparent;border:0;color:var(--faint);font-size:18px}.badge{font:700 17px monospace;padding:5px 9px;border-radius:7px}.badge.pos{background:var(--greenD)}.badge.neg{background:var(--redD)}
@@ -143,10 +147,13 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
  <section class="view" id="calendar">
   <div class="head"><h1>Calendar</h1><p>See your trading performance day by day.</p></div>
   <div class="period"><button id="cp">‹</button><div class="current" id="cc">—</div><button id="cn">›</button><button class="ghost" id="ct">Today</button></div>
-  <div class="summary">
-   <div class="card stat"><div class="lbl">Month P/L</div><div class="value" id="cm">$0</div></div><div class="card stat"><div class="lbl">Green days</div><div class="value pos" id="cg">0</div></div><div class="card stat"><div class="lbl">Red days</div><div class="value neg" id="cr">0</div></div>
+  <div class="summary" style="grid-template-columns:repeat(4,1fr)">
+   <div class="card stat"><div class="lbl">Monthly Net P&amp;L</div><div class="value" id="cm">$0</div></div>
+   <div class="card stat"><div class="lbl">Trades</div><div class="value" id="cTrades">0</div></div>
+   <div class="card stat"><div class="lbl">Win rate</div><div class="value" id="cWR">—</div></div>
+   <div class="card stat"><div class="lbl">Green / Red days</div><div class="value" id="cDays">0 / 0</div></div>
   </div>
-  <div class="calgrid"><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div><div class="dow">Sun</div><div class="dow wk">Week</div></div>
+  <div class="calgrid"><div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div><div class="dow wk">Week</div></div>
   <div class="calgrid" id="cal"></div>
   <div class="callegend"><span>🟢 profitable</span><span>🔴 loss</span><span style="color:var(--accent)">▢ blue outline = journaled</span><span style="color:var(--amber)">OPEX = monthly expiration</span><span>▨ CLOSED = market holiday</span></div>
  </section>
@@ -174,6 +181,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   <div class="summary"><div class="card stat"><div class="lbl">Net P/L</div><div class="value" id="mpl">$0</div></div><div class="card stat"><div class="lbl">Trades</div><div class="value" id="mct">0</div></div><div class="card stat"><div class="lbl">Win rate</div><div class="value" id="mwr">—</div></div></div>
   <div class="section">P/L by setup</div><div class="breakdown" id="mbreak"></div>
   <div class="section">P/L by entry emotion</div><div class="breakdown" id="mebreak"></div>
+  <div class="section">P/L by exit emotion</div><div class="breakdown" id="mxbreak"></div>
   <div class="section">Monthly reflection</div><textarea id="mnote" placeholder="What is the theme of this month's trading?"></textarea><br><br><button class="btn" id="msave">Save notes</button>
  </section>
 
@@ -194,7 +202,13 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 
   <div class="section">Performance by setup / playbook</div>
   <div class="tablewrap card"><table class="statstable"><thead><tr><th>Setup</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Net P/L</th></tr></thead><tbody id="setupStats"></tbody></table></div>
-  <div class="section">P/L by entry emotion</div><div class="breakdown" id="sebreak"></div>
+  <div class="section">Performance by entry emotion</div>
+  <div class="tablewrap card"><table class="statstable"><thead><tr><th>Emotion at entry</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Net P/L</th><th>Avg P/L</th></tr></thead><tbody id="entryEmoStats"></tbody></table></div>
+
+  <div class="section">Performance by exit emotion</div>
+  <div class="hint">Wins and losses are split out, so you can see things like cutting a winner short out of fear versus holding a loser too long.</div>
+  <div class="tablewrap card"><table class="statstable"><thead><tr><th>Emotion at exit</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Net P/L</th><th>Avg win</th><th>Avg loss</th></tr></thead><tbody id="exitEmoStats"></tbody></table></div>
+
   <div class="section">P/L by symbol</div><div class="breakdown" id="symbreak"></div>
  </section>
 
@@ -409,19 +423,23 @@ function renderCalendar(){
  let d=cursors.calendar,y=d.getFullYear(),m=d.getMonth();
  $('cc').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});
 
- // day buckets across ALL trades (so week totals work across month edges)
+ // buckets across ALL trades so week totals are right at month edges
  let all={};
  S.trades.forEach(t=>{ if(t.dateISO){ let k=key(new Date(t.dateISO)); all[k]??={p:0,c:0}; all[k].p+=t.pnl; all[k].c++; } });
 
  let mt=S.trades.filter(t=>t.dateISO&&new Date(t.dateISO).getFullYear()==y&&new Date(t.dateISO).getMonth()==m);
  let by={};
  mt.forEach(t=>{ let k=key(new Date(t.dateISO)); by[k]??={p:0,c:0}; by[k].p+=t.pnl; by[k].c++; });
- let net=mt.reduce((a,t)=>a+t.pnl,0), days=Object.values(by);
+ let net=mt.reduce((a,t)=>a+t.pnl,0);
+ let wins=mt.filter(t=>t.pnl>0).length;
  $('cm').textContent=money(net); $('cm').className='value '+(net>=0?'pos':'neg');
- $('cg').textContent=days.filter(x=>x.p>0).length;
- $('cr').textContent=days.filter(x=>x.p<0).length;
+ $('cTrades').textContent=mt.length;
+ $('cWR').textContent=mt.length?(wins/mt.length*100).toFixed(1)+'%':'—';
+ let days=Object.values(by);
+ $('cDays').innerHTML=`<span class="pos">${days.filter(x=>x.p>0).length}</span> / <span class="neg">${days.filter(x=>x.p<0).length}</span>`;
 
- let first=new Date(y,m,1), off=(first.getDay()+6)%7;
+ // Sunday-first grid
+ let first=new Date(y,m,1), off=first.getDay();
  let total=Math.ceil((off+new Date(y,m+1,0).getDate())/7)*7;
  let start=new Date(y,m,1-off), today=key(new Date());
 
@@ -431,45 +449,50 @@ function renderCalendar(){
   let inMonth=x.getMonth()==m, k=key(x), e=inMonth?by[k]:null;
 
   if(inMonth){
-   let cl='cell';
-   if(e) cl+= e.p>=0?' win':' loss';
-   if(isJournaled(x)) cl+=' journaled';
    let hol=holidayName(x);
+   let cl='cell';
+   if(e) cl+=' active';
+   if(isJournaled(x)) cl+=' journaled';
    if(hol) cl+=' closed';
    if(k==today) cl+=' today';
 
    let badges='';
-   if(isOpex(x)) badges+='<span class="badge-opex" title="Monthly options expiration">OPEX</span>';
-   if(hol) badges+=`<span class="badge-closed" title="${esc(hol)}">CLOSED</span>`;
+   if(isOpex(x)) badges+='<span class="badge-opex">OPEX</span>';
+   if(hol) badges+='<span class="badge-closed">CLOSED</span>';
 
-   cells+=`<div class="${cl}" ${e?`data-k="${k}"`:''}>
-     <div class="cellhead"><span class="daynum">${x.getDate()}</span>${badges}</div>
-     ${e?`<div><div class="cellpnl ${e.p>=0?'pos':'neg'}">${short(e.p)}</div><div class="cellcount">${e.c} trade${e.c==1?'':'s'}</div></div>`
-        :`<div class="cellcount">${hol?esc(hol):''}</div>`}
-   </div>`;
+   let body='';
+   if(e){
+    body=`<div class="pnlblock ${e.p>=0?'win':'loss'}" data-k="${k}">
+      <span class="amt2">${e.p>=0?'':'-'}$${Math.abs(e.p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+      <span class="cnt">${e.c} trade${e.c==1?'':'s'}</span>
+    </div>`;
+   } else if(hol){
+    body=`<div class="holname">${esc(hol)}</div>`;
+   }
+
+   cells+=`<div class="${cl}"><div class="cellhead"><span class="daynum">${x.getDate()}</span>${badges}</div>${body}</div>`;
   } else {
    cells+='<div class="cell blank"></div>';
   }
 
-  // after Sunday (7th cell of the row) append the week summary cell
+  // week summary after Saturday
   if(i%7===6){
    let ws=new Date(x); ws.setDate(x.getDate()-6);
-   let wp=0, wc=0, wWins=0;
+   let wp=0,wc=0;
    for(let j=0;j<7;j++){
     let wd=new Date(ws); wd.setDate(ws.getDate()+j);
     let en=all[key(wd)];
-    if(en){ wp+=en.p; wc+=en.c; if(en.p>0) wWins++; }
+    if(en){ wp+=en.p; wc+=en.c; }
    }
-   cells+=`<div class="weekcell${wc?(wp>=0?' win':' loss'):''}">
-     <div class="wklbl">Week</div>
-     ${wc?`<div class="wkpnl ${wp>=0?'pos':'neg'}">${short(wp)}</div><div class="wksub">${wc} trade${wc==1?'':'s'}</div>`:'<div class="wksub">—</div>'}
+   cells+=`<div class="weekcell">
+     ${wc?`<div class="wkpnl ${wp>=0?'pos':'neg'}">${wp>=0?'':'-'}$${Math.abs(wp).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="wksub">${wc} trade${wc==1?'':'s'}</div>`:'<div class="wksub">—</div>'}
    </div>`;
   }
  }
  $('cal').innerHTML=cells;
- document.querySelectorAll('#cal [data-k]').forEach(c=>c.onclick=()=>{
-  let [a,b,e]=c.dataset.k.split('-').map(Number);
-  cursors.daily=new Date(a,b-1,e);
+ document.querySelectorAll('#cal .pnlblock[data-k]').forEach(b=>b.onclick=()=>{
+  let [a,mm,dd]=b.dataset.k.split('-').map(Number);
+  cursors.daily=new Date(a,mm-1,dd);
   navigate('daily');
  });
 }
@@ -477,18 +500,49 @@ function renderCalendar(){
 $('cp').onclick=()=>{cursors.calendar.setMonth(cursors.calendar.getMonth()-1);renderCalendar()};$('cn').onclick=()=>{cursors.calendar.setMonth(cursors.calendar.getMonth()+1);renderCalendar()};$('ct').onclick=()=>{cursors.calendar=new Date();renderCalendar()};
 function renderDaily(){let d=cursors.daily,k=key(d),l=tradesDate(d),net=l.reduce((a,t)=>a+t.pnl,0),wins=l.filter(t=>t.pnl>0).length;$('dc').textContent=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});$('dpl').textContent=money(net);$('dpl').className='value '+(net>=0?'pos':'neg');$('dct').textContent=l.length;$('dwr').textContent=l.length?Math.round(wins/l.length*100)+'%':'—';$('dlist').innerHTML=l.length?l.map(t=>`<div class="minirow" data-id="${t.id}"><span><b>${esc(t.symbol)}</b> · <span class="${direction(t).toLowerCase()=='long'?'pos':direction(t).toLowerCase()=='short'?'neg':''}">${esc(direction(t))}</span> · ${esc(t.setup||'no setup')}</span><span class="${t.pnl>=0?'pos':'neg'}">${money(t.pnl)}</span></div>`).join(''):'<div class="empty" style="padding:25px">No trades this day.</div>';document.querySelectorAll('#dlist [data-id]').forEach(x=>x.onclick=()=>openModal(x.dataset.id));$('dnote').value=S.daily[k]||''}
 $('dp').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()-1);renderDaily()};$('dn').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()+1);renderDaily()};$('dsave').onclick=()=>{S.daily[key(cursors.daily)]=$('dnote').value;save();toast('Daily notes saved')};
-function breakdown(id,list,fn){let g={};list.forEach(t=>{let k=fn(t);if(!k)return;g[k]??={p:0,c:0};g[k].p+=t.pnl;g[k].c++});let a=Object.entries(g).sort((x,y)=>Math.abs(y[1].p)-Math.abs(x[1].p));if(!a.length){$(id).innerHTML='<div style="color:var(--faint);font-size:12px">Nothing logged yet.</div>';return}let mx=Math.max(1,...a.map(x=>Math.abs(x[1].p)));$(id).innerHTML=a.map(([k,v])=>`<div class="brow"><div class="bname">${esc(k)} <small>(${v.c})</small></div><div class="barbg"><div class="bar ${v.p>=0?'pos':'neg'}" style="width:${Math.max(4,Math.abs(v.p)/mx*100)}%"></div></div><div class="amt ${v.p>=0?'pos':'neg'}">${money(v.p)}</div></div>`).join('')}
+const EMO_LABELS={calm:'Calm',confident:'Confident',hesitant:'Hesitant',fomo:'FOMO',revenge:'Revenge',satisfied:'Satisfied',relieved:'Relieved',fearful:'Fearful',frustrated:'Frustrated',regret:'Regret'};
+function breakdown(id,list,fn){let g={};list.forEach(t=>{let k=fn(t);if(!k)return;g[k]??={p:0,c:0};g[k].p+=t.pnl;g[k].c++});let a=Object.entries(g).sort((x,y)=>Math.abs(y[1].p)-Math.abs(x[1].p));if(!a.length){$(id).innerHTML='<div style="color:var(--faint);font-size:12px">Nothing logged yet.</div>';return}let mx=Math.max(1,...a.map(x=>Math.abs(x[1].p)));$(id).innerHTML=a.map(([k,v])=>`<div class="brow"><div class="bname">${esc(EMO_LABELS[k]||k)} <small>(${v.c})</small></div><div class="barbg"><div class="bar ${v.p>=0?'pos':'neg'}" style="width:${Math.max(4,Math.abs(v.p)/mx*100)}%"></div></div><div class="amt ${v.p>=0?'pos':'neg'}">${money(v.p)}</div></div>`).join('')}
 function weekTrades(d){let s=startWeek(d),e=new Date(s);e.setDate(e.getDate()+7);return S.trades.filter(t=>t.dateISO&&new Date(t.dateISO)>=s&&new Date(t.dateISO)<e)}
 function renderWeekly(){let s=startWeek(cursors.weekly),e=new Date(s);e.setDate(e.getDate()+6);let l=weekTrades(cursors.weekly),net=l.reduce((a,t)=>a+t.pnl,0),w=l.filter(t=>t.pnl>0).length;$('wc').textContent=s.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+e.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});$('wpl').textContent=money(net);$('wpl').className='value '+(net>=0?'pos':'neg');$('wct').textContent=l.length;$('wwr').textContent=l.length?Math.round(w/l.length*100)+'%':'—';breakdown('wbreak',l,t=>t.setup);let notes=[];for(let i=0;i<7;i++){let d=new Date(s);d.setDate(s.getDate()+i);if(S.daily[key(d)])notes.push(`<div class="minirow"><b>${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</b><span style="color:var(--dim);max-width:65%;text-align:right">${esc(S.daily[key(d)].slice(0,90))}</span></div>`)}$('wnoteslist').innerHTML=notes.join('')||'<div class="empty" style="padding:20px">No daily notes this week.</div>';$('wnote').value=S.weekly[weekKey(s)]||''}
 function weekKey(d){let x=new Date(d);let jan=new Date(x.getFullYear(),0,1);let n=Math.floor((startWeek(x)-startWeek(jan))/604800000)+1;return `${x.getFullYear()}-W${pad(n)}`}
 $('wp').onclick=()=>{cursors.weekly.setDate(cursors.weekly.getDate()-7);renderWeekly()};$('wn').onclick=()=>{cursors.weekly.setDate(cursors.weekly.getDate()+7);renderWeekly()};$('wsave').onclick=()=>{S.weekly[weekKey(startWeek(cursors.weekly))]=$('wnote').value;save();toast('Weekly notes saved')};
 function monthTrades(d){return S.trades.filter(t=>t.dateISO&&new Date(t.dateISO).getFullYear()==d.getFullYear()&&new Date(t.dateISO).getMonth()==d.getMonth())}
 const labels={calm:'Calm',confident:'Confident',hesitant:'Hesitant',fomo:'FOMO',revenge:'Revenge'};
-function renderMonthly(){let d=cursors.monthly,l=monthTrades(d),net=l.reduce((a,t)=>a+t.pnl,0),w=l.filter(t=>t.pnl>0).length;$('mc').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});$('mpl').textContent=money(net);$('mpl').className='value '+(net>=0?'pos':'neg');$('mct').textContent=l.length;$('mwr').textContent=l.length?Math.round(w/l.length*100)+'%':'—';breakdown('mbreak',l,t=>t.setup);breakdown('mebreak',l,t=>t.emoEntry);$('mnote').value=S.monthly[monthKey(d)]||''}
+function renderMonthly(){let d=cursors.monthly,l=monthTrades(d),net=l.reduce((a,t)=>a+t.pnl,0),w=l.filter(t=>t.pnl>0).length;$('mc').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});$('mpl').textContent=money(net);$('mpl').className='value '+(net>=0?'pos':'neg');$('mct').textContent=l.length;$('mwr').textContent=l.length?Math.round(w/l.length*100)+'%':'—';breakdown('mbreak',l,t=>t.setup);breakdown('mebreak',l,t=>t.emoEntry);breakdown('mxbreak',l,t=>t.emoExit);$('mnote').value=S.monthly[monthKey(d)]||''}
 $('mp').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()-1);renderMonthly()};$('mn').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()+1);renderMonthly()};$('msave').onclick=()=>{S.monthly[monthKey(cursors.monthly)]=$('mnote').value;save();toast('Monthly notes saved')};
 function renderStats(){curve('svg2','total2','first2','last2');let l=S.trades;if(!l.length){$('statsgrid').innerHTML='';$('sidebreak').innerHTML='';$('timeStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';$('dayStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';return}let wins=l.filter(t=>t.pnl>0),loss=l.filter(t=>t.pnl<0),net=l.reduce((a,t)=>a+t.pnl,0),gw=wins.reduce((a,t)=>a+t.pnl,0),gl=Math.abs(loss.reduce((a,t)=>a+t.pnl,0)),pf=gl?gw/gl:(gw?'∞':'0'),aw=wins.length?gw/wins.length:0,al=loss.length?loss.reduce((a,t)=>a+t.pnl,0)/loss.length:0,best=l.reduce((a,t)=>t.pnl>a.pnl?t:a,l[0]),worst=l.reduce((a,t)=>t.pnl<a.pnl?t:a,l[0]);let cards=[['Net P/L',money(net),net>=0?'pos':'neg'],['Total trades',l.length,''],['Win rate',(wins.length/l.length*100).toFixed(1)+'%',''],['Profit factor',pf,''],['Avg win',money(aw),'pos'],['Avg loss',money(al),'neg'],['Best trade',money(best.pnl),'pos'],['Worst trade',money(worst.pnl),'neg'],['Journaled',l.filter(t=>t.setup||t.entryNotes||t.exitNotes||t.emoEntry).length+' / '+l.length,'']];$('statsgrid').innerHTML=cards.map(x=>`<div class="card stat"><div class="lbl">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');
 let sides={Long:[],Short:[]};l.forEach(t=>{let s=direction(t);if(sides[s])sides[s].push(t)});let sideEntries=Object.entries(sides).filter(([k,v])=>v.length);if(!sideEntries.length)$('sidebreak').innerHTML='<div class="muted">No direction data.</div>';else{$('sidebreak').innerHTML=sideEntries.map(([side,a])=>{let sw=a.filter(t=>t.pnl>0),sl=a.filter(t=>t.pnl<0),sp=a.reduce((x,t)=>x+t.pnl,0),savg=sw.length?sw.reduce((x,t)=>x+t.pnl,0)/sw.length:0,sbest=sw.length?Math.max(...sw.map(t=>t.pnl)):null;return `<div class="brow"><div class="bname ${side==='Long'?'pos':'neg'}">${side} <small>(${a.length})</small></div><div class="barbg"><div class="bar ${sp>=0?'pos':'neg'}" style="width:${Math.max(4,Math.abs(sp)/(Math.max(1,...sideEntries.map(([_,v])=>Math.abs(v.reduce((x,t)=>x+t.pnl,0)))))*100)}%"></div></div><div class="amt ${sp>=0?'pos':'neg'}">${money(sp)} · ${sw.length}W/${sl.length}L</div></div><div class="hint" style="margin:-4px 0 4px">${(sw.length/a.length*100).toFixed(1)}% win · avg win ${sw.length?money(savg):'—'} · best win ${sbest===null?'—':money(sbest)}</div>`}).join('')}
-let times=l.filter(t=>entryDate(t));$('timeStats').innerHTML=statRows(times,t=>bucket15(entryDate(t)),timeLabel,(a,b)=>a-b);$('dayStats').innerHTML=statRows(times,t=>entryDate(t).getDay(),k=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][k],(a,b)=>{let order=[1,2,3,4,5,6,0];return order.indexOf(a)-order.indexOf(b)});renderSetupStats(l);breakdown('sebreak',l,t=>t.emoEntry);breakdown('symbreak',l,t=>t.symbol)}
+let times=l.filter(t=>entryDate(t));$('timeStats').innerHTML=statRows(times,t=>bucket15(entryDate(t)),timeLabel,(a,b)=>a-b);$('dayStats').innerHTML=statRows(times,t=>entryDate(t).getDay(),k=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][k],(a,b)=>{let order=[1,2,3,4,5,6,0];return order.indexOf(a)-order.indexOf(b)});renderSetupStats(l);renderEmoStats(l);breakdown('symbreak',l,t=>t.symbol)}
+const allEmoLabels={calm:'Calm',confident:'Confident',hesitant:'Hesitant',fomo:'FOMO',revenge:'Revenge',satisfied:'Satisfied',relieved:'Relieved',fearful:'Fearful',frustrated:'Frustrated',regret:'Regret'};
+function renderEmoStats(l){
+ function build(field,tbodyId,withAvgSplit){
+  let g={};
+  l.forEach(t=>{
+   let k=t[field]; if(!k) return;
+   g[k]??={n:0,w:0,ls:0,p:0,winSum:0,lossSum:0};
+   let v=g[k]; v.n++; v.p+=t.pnl;
+   if(t.pnl>0){ v.w++; v.winSum+=t.pnl; }
+   else if(t.pnl<0){ v.ls++; v.lossSum+=t.pnl; }
+  });
+  let rows=Object.entries(g).sort((a,b)=>b[1].n-a[1].n);
+  if(!rows.length){
+   $(tbodyId).innerHTML=`<tr><td colspan="${withAvgSplit?8:7}" class="muted">Nothing tagged yet. Tag trades with emotions to see patterns here.</td></tr>`;
+   return;
+  }
+  $(tbodyId).innerHTML=rows.map(([k,v])=>{
+   let label=allEmoLabels[k]||k;
+   let wr=v.n?(v.w/v.n*100):0;
+   if(withAvgSplit){
+    let aw=v.w?v.winSum/v.w:null, al=v.ls?v.lossSum/v.ls:null;
+    return `<tr><td>${esc(label)}</td><td>${v.n}</td><td class="pos">${v.w}</td><td class="neg">${v.ls}</td><td>${wr.toFixed(1)}%</td><td class="${v.p>=0?'pos':'neg'}">${money(v.p)}</td><td class="pos">${aw==null?'—':money(aw)}</td><td class="neg">${al==null?'—':money(al)}</td></tr>`;
+   }
+   let avg=v.n?v.p/v.n:0;
+   return `<tr><td>${esc(label)}</td><td>${v.n}</td><td class="pos">${v.w}</td><td class="neg">${v.ls}</td><td>${wr.toFixed(1)}%</td><td class="${v.p>=0?'pos':'neg'}">${money(v.p)}</td><td class="${avg>=0?'pos':'neg'}">${money(avg)}</td></tr>`;
+  }).join('');
+ }
+ build('emoEntry','entryEmoStats',false);
+ build('emoExit','exitEmoStats',true);
+}
 function renderSetupStats(l){
  let g={};
  l.forEach(t=>{ if(!t.setup)return; g[t.setup]??={n:0,w:0,ls:0,p:0}; let v=g[t.setup]; v.n++; v.p+=t.pnl; if(t.pnl>0)v.w++; else if(t.pnl<0)v.ls++; });
@@ -678,7 +732,11 @@ function btParseTVClip(html){
     findPoints(v);
    }
   })(data);
-  if(pts) hits.entry=pts[0].price;
+  if(pts){
+   hits.entry=pts[0].price;
+   // the first anchor's bar time is the entry time
+   if(typeof pts[0].time_t==='number') hits.time_t=pts[0].time_t;
+  }
  }
 
  // clean the symbol: "CME_MINI:MNQ1!" -> "MNQ"
@@ -702,6 +760,7 @@ function btClipToFields(hits){
  if(hits.direction) out.direction=hits.direction;
  // qty is deliberately NOT taken from the clip: TradingView stores a
  // risk-based fractional size (e.g. 0.034), not a contract count.
+ if(hits.time_t!=null) out.time_t=hits.time_t;
  let entry=hits.entry;
  if(entry!=null) out.entry=entry;
 
@@ -817,9 +876,20 @@ function btHandlePaste(e){
   e.preventDefault();
   let f=btClipToFields(clip);
   let found=['symbol','direction','entry','stop','target'].filter(k=>f[k]!=null);
+  // fill the date/time fields from the drawing's own bar timestamp
+  if(f.time_t!=null){
+   let td=new Date(f.time_t*1000);
+   $('btf_date').value=key(td);
+   $('btf_time').value=pad(td.getHours())+':'+pad(td.getMinutes());
+   found.push('date/time');
+  }
   if(found.length){
    btApplyParsed({symbol:f.symbol,direction:f.direction,entry:f.entry,stop:f.stop,target:f.target});
    let detail=found.map(k=>{
+     if(k==='date/time'){
+      let td=new Date(f.time_t*1000);
+      return `entry time: <b>${esc(td.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}))}</b>`;
+     }
      let mark=(k==='stop'&&f.stopDerived)||(k==='target'&&f.targetDerived)?' (derived)':'';
      let v=typeof f[k]==='number'?Math.round(f[k]*10000)/10000:f[k];
      return `${k}: <b>${esc(v)}</b>${mark}`;
