@@ -70,7 +70,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
  .btlogrow>div{display:flex;justify-content:space-between;padding:2px 0}
  .btlogrow .num{text-align:left;padding-right:0}
 }
-.ocrzone{border:1.5px dashed var(--border);border-radius:8px;padding:22px 14px;text-align:center;color:var(--faint);font-size:12.5px;cursor:pointer;transition:.15s}
+.ocrzone{width:100%;min-height:64px;border:1.5px dashed var(--border);border-radius:8px;padding:12px;text-align:center;color:var(--text);background:var(--bg);font:12.5px monospace;transition:.15s;box-sizing:border-box;resize:vertical}
 .ocrzone:hover,.ocrzone:focus{border-color:var(--accent);color:var(--text);outline:none}
 .ocrzone.drag{border-color:var(--accent);background:var(--panel2)}
 .ocrzone.busy{border-style:solid;color:var(--accent)}
@@ -209,10 +209,10 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    <div class="card" style="padding:16px 18px;margin-bottom:16px">
     <div class="field" style="margin-bottom:10px">
      <label>Paste or drop a screenshot of the TradingView position box — reads Target, Stop, and Risk/Reward off the image</label>
-     <div class="ocrzone" id="btocrzone" tabindex="0">
-      <div id="btocrzone-msg">Click here, then paste a screenshot (Ctrl/Cmd+V) — or drop an image file</div>
-      <input hidden type="file" id="btocrfile" accept="image/*">
-     </div>
+     <textarea class="ocrzone" id="btocrzone" placeholder="Click here, then press Cmd/Ctrl+V to paste the copied position tool"></textarea>
+     <div id="btocrzone-msg" style="font-size:11px;color:var(--faint);margin-top:6px">Or drop an image file onto the box above.</div>
+     <div style="margin-top:6px"><button class="ghost" id="btocrbrowse" style="padding:5px 12px;font-size:11.5px">Choose image file</button></div>
+     <input hidden type="file" id="btocrfile" accept="image/*">
      <div class="ocrpreview" id="btocrpreview"></div>
     </div>
     <div class="hint">Works best with a clean device screenshot. Phone photos of a monitor (moiré, glare) read poorly — manual entry below is always the reliable fallback.</div>
@@ -509,10 +509,11 @@ async function btRunOCR(source){
   toast('OCR failed');
  }
  zone.classList.remove('busy');
- $('btocrzone-msg').textContent='Click here, then paste a screenshot (Ctrl/Cmd+V) — or drop an image file';
+ btocrzone.value='';
+ $('btocrzone-msg').textContent='Or drop an image file onto the box above.';
 }
 const btocrzone=$('btocrzone');
-btocrzone.addEventListener('click',()=>$('btocrfile').click());
+$('btocrbrowse').addEventListener('click',()=>$('btocrfile').click());
 $('btocrfile').addEventListener('change',()=>{ if($('btocrfile').files[0]) btRunOCR($('btocrfile').files[0]); $('btocrfile').value=''; });
 ['dragenter','dragover'].forEach(ev=>btocrzone.addEventListener(ev,e=>{e.preventDefault();btocrzone.classList.add('drag')}));
 ['dragleave','drop'].forEach(ev=>btocrzone.addEventListener(ev,e=>{e.preventDefault();btocrzone.classList.remove('drag')}));
@@ -522,10 +523,33 @@ function btHandlePaste(e){
  let cd=e.clipboardData||window.clipboardData;
  if(!cd) return;
  let types=[...cd.types||[]];
- // 1) try every non-image text-ish format first — this is where TradingView's
- // real structured data lives, not just the "Long Position" plain-text fallback
- let combined='';
+ let items=cd.items||[];
+
+ // Collect debug info about EVERYTHING on the clipboard, whatever we end up using.
  let debugParts=[];
+ debugParts.push(`types present: ${types.join(', ')||'(none)'}`);
+ for(let i=0;i<items.length;i++){
+  debugParts.push(`item[${i}] kind=${items[i].kind} type=${items[i].type}`);
+ }
+
+ // 1) IMAGE FIRST. TradingView's copy puts a picture of the position tool on the
+ // clipboard, often alongside a throwaway text label. Text must never win here.
+ for(let item of items){
+  if(item.type && item.type.startsWith('image/')){
+   e.preventDefault();
+   let file=item.getAsFile();
+   if(file){ btRunOCR(file); return; }
+  }
+ }
+ // also check files[] — some browsers expose pasted images there instead of items[]
+ if(cd.files && cd.files.length){
+  for(let f of cd.files){
+   if(f.type && f.type.startsWith('image/')){ e.preventDefault(); btRunOCR(f); return; }
+  }
+ }
+
+ // 2) No image — fall back to reading any text formats.
+ let combined='';
  for(let t of types){
   if(t.startsWith('image/')) continue;
   try{
@@ -533,31 +557,26 @@ function btHandlePaste(e){
    if(d){ combined += '\n'+d; debugParts.push(`[${t}] (${d.length} chars): ${d.slice(0,300)}`); }
   }catch(err){}
  }
+ let rawDump=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--dim)">Raw clipboard data (tap to expand)</summary><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(debugParts.join('\n\n'))}</pre></details>`;
  if(combined.trim()){
   let parsed=btParseOCRText(combined);
   let found=['symbol','direction','entry','stop','target','ratio'].filter(k=>parsed[k]!=null);
-  let rawDump=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--dim)">Raw clipboard data (tap to expand)</summary><pre style="white-space:pre-wrap;font-size:10.5px;margin:6px 0 0;color:var(--faint)">${esc(debugParts.join('\n\n'))}</pre></details>`;
   e.preventDefault();
   $('btocrpreview').className='ocrpreview show';
   if(found.length){
    btApplyParsed(parsed);
-   $('btocrpreview').innerHTML=`<b>Parsed from clipboard:</b> `+found.map(k=>{
+   $('btocrpreview').innerHTML=`<b>Parsed from clipboard text:</b> `+found.map(k=>{
      let v=k==='entry'&&parsed.entryDerived ? parsed.entry.toFixed(2)+' (derived)' : parsed[k];
      return `${k}: <b>${esc(v)}</b>`;
-   }).join(' · ')+`<br>Double-check before adding.${rawDump}`;
-   toast(`Parsed ${found.length} field${found.length==1?'':'s'} from clipboard`);
+   }).join(' · ')+`<br>No image was on the clipboard — only text.${rawDump}`;
+   toast(`Parsed ${found.length} field${found.length==1?'':'s'} from text`);
   } else {
-   $('btocrpreview').innerHTML=`Clipboard had text data but nothing matched.${rawDump}Screenshot the expanded raw data and send it over so I can tune the parser to your exact format.`;
+   $('btocrpreview').innerHTML=`Clipboard had text but no image, and nothing matched.${rawDump}`;
   }
   return;
  }
- // 2) no usable text at all — fall back to image OCR
- let items=cd.items||[];
- for(let item of items){
-  if(item.type.startsWith('image/')){ e.preventDefault(); btRunOCR(item.getAsFile()); return; }
- }
  $('btocrpreview').className='ocrpreview show';
- $('btocrpreview').innerHTML='Clipboard was empty or unreadable. If you copied the TradingView tool directly, try again, or use a screen-capture-to-clipboard shortcut instead (Cmd+Ctrl+Shift+4 on Mac, Win+Shift+S on Windows) then paste that.';
+ $('btocrpreview').innerHTML=`Clipboard appears empty.${rawDump}`;
 }
 function btApplyParsed(parsed){
  if(parsed.symbol) $('btf_symbol').value=parsed.symbol;
