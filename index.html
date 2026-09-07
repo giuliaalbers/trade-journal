@@ -347,7 +347,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    <div class="two"><div class="field"><label>Emotion at entry</label><div class="emos" id="entryemos"></div></div><div class="field"><label>Emotion at exit</label><div class="emos" id="exitemos"></div></div></div>
    <div class="field"><label>Entry notes</label><textarea id="entrynote" placeholder="What did you see? Why did you take it?"></textarea></div>
    <div class="field"><label>Exit notes</label><textarea id="exitnote" placeholder="Why did you exit? Target, stop, fear, early exit, etc."></textarea></div>
-   <div class="field"><label>Chart screenshots</label><div class="shotzone" id="shotzone">Tap to add screenshots<input hidden type="file" id="shotsin" accept="image/*" multiple></div><div class="shots" id="shots"></div></div>
+   <div class="field"><label>Chart screenshots</label><div class="shotzone" id="shotzone">Paste a screenshot (Cmd/Ctrl+V), drop an image, or click to browse<input hidden type="file" id="shotsin" accept="image/*" multiple></div><div class="shots" id="shots"></div></div>
   </div>
   <div class="modalfoot"><span>Autosaves as you type</span><button class="btn" id="done">Done</button></div>
  </div>
@@ -631,7 +631,29 @@ function emoButtons(id,list,val){$(id).innerHTML=list.map(x=>`<button class="emo
 function current(){return S.trades.find(t=>t.id==modalId)}
 $('setup').onchange=e=>{handleSetupSelect(e.target,val=>{let t=current();if(t){t.setup=val;save();renderTrades();}})};$('entrynote').oninput=e=>{let t=current();if(t){t.entryNotes=e.target.value;save()}};$('exitnote').oninput=e=>{let t=current();if(t){t.exitNotes=e.target.value;save()}};
 function renderShots(t){$('shots').innerHTML=(t.screenshots||[]).map((s,i)=>`<div class="thumb"><img src="${s}"><button data-i="${i}">✕</button></div>`).join('');$('shots').querySelectorAll('button').forEach(b=>b.onclick=()=>{t.screenshots.splice(+b.dataset.i,1);save();renderShots(t)})}
-$('shotzone').onclick=()=>$('shotsin').click();$('shotsin').onchange=()=>{addShots($('shotsin').files);$('shotsin').value=''};async function addShots(files){let t=current();if(!t)return;t.screenshots=t.screenshots||[];for(let f of files){if(!f.type.startsWith('image/'))continue;let r=new FileReader();await new Promise(res=>{r.onload=()=>{t.screenshots.push(r.result);res()};r.readAsDataURL(f)});}save();renderShots(t)}
+$('shotzone').onclick=()=>$('shotsin').click();$('shotsin').onchange=()=>{addShots($('shotsin').files);$('shotsin').value=''};
+// paste an image straight into the open trade — no file picker needed
+document.addEventListener('paste',e=>{
+ if(!$('back').classList.contains('show')) return;   // only when the trade modal is open
+ if(!current()) return;
+ let cd=e.clipboardData||window.clipboardData; if(!cd) return;
+ let imgs=[];
+ for(let item of (cd.items||[])){
+  if(item.type&&item.type.startsWith('image/')){ let f=item.getAsFile(); if(f) imgs.push(f); }
+ }
+ if(!imgs.length&&cd.files){ for(let f of cd.files){ if(f.type&&f.type.startsWith('image/')) imgs.push(f); } }
+ if(!imgs.length) return;   // let normal text paste through to the notes fields
+ e.preventDefault();
+ addShots(imgs);
+ toast(`Added ${imgs.length} screenshot${imgs.length==1?'':'s'}`);
+});
+['dragenter','dragover'].forEach(ev=>$('shotzone').addEventListener(ev,e=>{e.preventDefault();$('shotzone').style.borderColor='var(--accent)'}));
+['dragleave','drop'].forEach(ev=>$('shotzone').addEventListener(ev,e=>{e.preventDefault();$('shotzone').style.borderColor=''}));
+$('shotzone').addEventListener('drop',e=>{
+ let imgs=[...(e.dataTransfer.files||[])].filter(f=>f.type&&f.type.startsWith('image/'));
+ if(imgs.length){ addShots(imgs); toast(`Added ${imgs.length} screenshot${imgs.length==1?'':'s'}`); }
+});
+async function addShots(files){let t=current();if(!t)return;t.screenshots=t.screenshots||[];for(let f of files){if(!f.type.startsWith('image/'))continue;let r=new FileReader();await new Promise(res=>{r.onload=()=>{t.screenshots.push(r.result);res()};r.readAsDataURL(f)});}save();renderShots(t)}
 function closeModal(){$('back').classList.remove('show');modalId=null;renderAll()}$('close').onclick=closeModal;$('done').onclick=closeModal;$('back').onclick=e=>{if(e.target===$('back'))closeModal()};
 function tradesDate(d){let k=key(d);return S.trades.filter(t=>t.dateISO&&key(new Date(t.dateISO))==k)}
 function startWeek(d){let x=new Date(d),n=(x.getDay()+6)%7;x.setDate(x.getDate()-n);x.setHours(0,0,0,0);return x}
