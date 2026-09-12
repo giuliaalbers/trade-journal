@@ -187,6 +187,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 
 <main class="main">
  <div class="mobilebar"><button class="menu" id="menu">☰</button><div class="mobiletitle">◈ Blotter</div></div>
+ <div id="storageWarn"></div>
 
  <section class="view active" id="upload">
   <div class="head"><h1>Import position history</h1><p>Import your Tradovate CSV. Re-importing the same file will not duplicate trades.</p></div>
@@ -520,7 +521,42 @@ const pad=n=>String(n).padStart(2,'0');
 const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const monthKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-function save(){localStorage.setItem(KEY,JSON.stringify(S));if(typeof backupHealth==='function')backupHealth();if(typeof ghMaybeAuto==='function')ghMaybeAuto();if(typeof fsMaybeAuto==='function')fsMaybeAuto();}
+// ---- persistence: IndexedDB primary (large quota), localStorage fallback ----
+const DB_NAME='blotter-store', DB_STORE='kv', DB_KEY='state';
+function idbOpen(){
+ return new Promise((res,rej)=>{
+  let r=indexedDB.open(DB_NAME,1);
+  r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains(DB_STORE)) r.result.createObjectStore(DB_STORE); };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+ });
+}
+function idbSet(v){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).put(v,DB_KEY); tx.oncomplete=()=>res(true); tx.onerror=()=>rej(tx.error); })); }
+function idbGet(){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(DB_STORE,'readonly'); let q=tx.objectStore(DB_STORE).get(DB_KEY); q.onsuccess=()=>res(q.result||null); q.onerror=()=>rej(q.error); })); }
+
+let saveSeq=0, saveFailed=false;
+function save(){
+ // never let a storage or backup problem stop the UI from updating
+ let mySeq=++saveSeq;
+ idbSet(S).then(()=>{
+  if(saveFailed){ saveFailed=false; storageMsg(''); }
+ }).catch(err=>{
+  saveFailed=true;
+  storageMsg('Could not save to this browser: '+(err&&err.name||'error')+'. Export a backup now.');
+ });
+ // keep a lightweight localStorage copy (no images) as a safety net
+ try{
+  let light=Object.assign({},S,{dayShots:{}});
+  light.trades=(S.trades||[]).map(t=>Object.assign({},t,{screenshots:[]}));
+  localStorage.setItem(KEY,JSON.stringify(light));
+ }catch(err){ /* quota — IndexedDB is the real store, so this is fine */ }
+ try{ if(typeof backupHealth==='function')backupHealth(); }catch(err){}
+ try{ if(typeof ghMaybeAuto==='function')ghMaybeAuto(); }catch(err){}
+ try{ if(typeof fsMaybeAuto==='function')fsMaybeAuto(); }catch(err){}
+}
+function storageMsg(txt){
+ let el=$('storageWarn'); if(!el) return;
+ el.innerHTML = txt ? `<div class="notrade" style="border-color:var(--red);color:var(--red)">${esc(txt)}</div>` : '';
+}
 function toast(x){$('toast').textContent=x;$('toast').classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>$('toast').classList.remove('show'),2200)}
 function parseCSV(txt){let rows=[],row=[],f='',q=false;for(let i=0;i<txt.length;i++){let c=txt[i];if(q){if(c=='"'){if(txt[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else{if(c=='"')q=true;else if(c==','){row.push(f);f=''}else if(c=='\n'){row.push(f);rows.push(row);row=[];f=''}else if(c!='\r')f+=c}}if(f||row.length){row.push(f);rows.push(row)}return rows.filter(r=>r.some(x=>x.trim()!=''))}
 function col(h,cands){let a=h.map(x=>x.trim().toLowerCase());for(let c of cands){let i=a.indexOf(c);if(i>=0)return i}for(let c of cands){let i=a.findIndex(x=>x.includes(c));if(i>=0)return i}return -1}
@@ -1592,7 +1628,7 @@ function renderDaily(){let d=cursors.daily,k=key(d),l=tradesDate(d),net=l.reduce
   nb.innerHTML=`<div class="notrade"><b>${why}</b><span>${has?'You journaled it.':'Worth a note on why you stayed flat — that is data too.'}</span></div>`;
  } else nb.innerHTML='';
 }
-$('dp').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()-1);renderDaily()};$('dn').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()+1);renderDaily()};$('dsave').onclick=()=>{S.daily[key(cursors.daily)]=$('dnote').value;save();toast('Daily notes saved')};
+$('dp').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()-1);renderDaily()};$('dn').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()+1);renderDaily()};$('dsave').onclick=()=>{S.daily[key(cursors.daily)]=$('dnote').value;save();renderDaily();renderCalendar();toast('Daily notes saved')};
 $('evsuggest').innerHTML=EVENT_SUGGESTIONS.map(x=>`<option value="${esc(x)}">`).join('');
 function doAddEvent(){let v=$('devinput').value.trim();if(!v)return;addCustomEvent(cursors.daily,v);$('devinput').value='';renderDailyEvents(cursors.daily);renderCalendar();toast('Event added');}
 $('devadd').onclick=doAddEvent;
@@ -1619,11 +1655,11 @@ function breakdown(id,list,fn){let g={};list.forEach(t=>{let k=fn(t);if(!k)retur
 function weekTrades(d){let s=startWeek(d),e=new Date(s);e.setDate(e.getDate()+7);return S.trades.filter(t=>t.dateISO&&new Date(t.dateISO)>=s&&new Date(t.dateISO)<e)}
 function renderWeekly(){let s=startWeek(cursors.weekly),e=new Date(s);e.setDate(e.getDate()+6);let l=weekTrades(cursors.weekly),net=l.reduce((a,t)=>a+P(t),0),w=l.filter(t=>P(t)>0).length;$('wc').textContent=s.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+e.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});$('wpl').textContent=money(net);$('wpl').className='value '+(net>=0?'pos':'neg');$('wct').textContent=l.length;$('wwr').textContent=l.length?Math.round(w/l.length*100)+'%':'—';breakdown('wbreak',l,t=>t.setup);let notes=[];for(let i=0;i<7;i++){let d=new Date(s);d.setDate(s.getDate()+i);if(S.daily[key(d)])notes.push(`<div class="minirow"><b>${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</b><span style="color:var(--dim);max-width:65%;text-align:right">${esc(S.daily[key(d)].slice(0,90))}</span></div>`)}$('wnoteslist').innerHTML=notes.join('')||'<div class="empty" style="padding:20px">No daily notes this week.</div>';$('wnote').value=S.weekly[weekKey(s)]||'';maybeAutoTemplate('weekly','wtpl','wnote')}
 function weekKey(d){let x=new Date(d);let jan=new Date(x.getFullYear(),0,1);let n=Math.floor((startWeek(x)-startWeek(jan))/604800000)+1;return `${x.getFullYear()}-W${pad(n)}`}
-$('wp').onclick=()=>{cursors.weekly.setDate(cursors.weekly.getDate()-7);renderWeekly()};$('wn').onclick=()=>{cursors.weekly.setDate(cursors.weekly.getDate()+7);renderWeekly()};$('wsave').onclick=()=>{S.weekly[weekKey(startWeek(cursors.weekly))]=$('wnote').value;save();toast('Weekly notes saved')};
+$('wp').onclick=()=>{cursors.weekly.setDate(cursors.weekly.getDate()-7);renderWeekly()};$('wn').onclick=()=>{cursors.weekly.setDate(cursors.weekly.getDate()+7);renderWeekly()};$('wsave').onclick=()=>{S.weekly[weekKey(startWeek(cursors.weekly))]=$('wnote').value;save();renderWeekly();toast('Weekly notes saved')};
 function monthTrades(d){return S.trades.filter(t=>t.dateISO&&new Date(t.dateISO).getFullYear()==d.getFullYear()&&new Date(t.dateISO).getMonth()==d.getMonth())}
 const labels={calm:'Calm',confident:'Confident',hesitant:'Hesitant',fomo:'FOMO',revenge:'Revenge'};
 function renderMonthly(){let d=cursors.monthly,l=monthTrades(d),net=l.reduce((a,t)=>a+P(t),0),w=l.filter(t=>P(t)>0).length;$('mc').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});$('mpl').textContent=money(net);$('mpl').className='value '+(net>=0?'pos':'neg');$('mct').textContent=l.length;$('mwr').textContent=l.length?Math.round(w/l.length*100)+'%':'—';breakdown('mbreak',l,t=>t.setup);breakdown('mebreak',l,t=>t.emoEntry);breakdown('mxbreak',l,t=>t.emoExit);$('mnote').value=S.monthly[monthKey(d)]||'';maybeAutoTemplate('monthly','mtpl','mnote')}
-$('mp').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()-1);renderMonthly()};$('mn').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()+1);renderMonthly()};$('msave').onclick=()=>{S.monthly[monthKey(cursors.monthly)]=$('mnote').value;save();toast('Monthly notes saved')};
+$('mp').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()-1);renderMonthly()};$('mn').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()+1);renderMonthly()};$('msave').onclick=()=>{S.monthly[monthKey(cursors.monthly)]=$('mnote').value;save();renderMonthly();toast('Monthly notes saved')};
 function renderStats(){curve('svg2','total2','first2','last2');let l=S.trades;if(!l.length){$('statsgrid').innerHTML='';$('sidebreak').innerHTML='';$('timeStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';$('dayStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';return}let wins=l.filter(t=>P(t)>0),loss=l.filter(t=>P(t)<0),net=l.reduce((a,t)=>a+P(t),0),gw=wins.reduce((a,t)=>a+P(t),0),gl=Math.abs(loss.reduce((a,t)=>a+P(t),0)),pf=gl?gw/gl:(gw?'∞':'0'),aw=wins.length?gw/wins.length:0,al=loss.length?loss.reduce((a,t)=>a+P(t),0)/loss.length:0,best=l.reduce((a,t)=>P(t)>P(a)?t:a,l[0]),worst=l.reduce((a,t)=>P(t)<P(a)?t:a,l[0]),grossNet=l.reduce((a,t)=>a+(+t.pnl||0),0),commTotal=totalComm(l);let cards=[['Net P/L',money(net),net>=0?'pos':'neg'],['Total trades',l.length,''],['Win rate',(wins.length/l.length*100).toFixed(1)+'%',''],['Profit factor',pf,''],['Avg win',money(aw),'pos'],['Avg loss',money(al),'neg'],['Best trade',money(P(best)),'pos'],['Worst trade',money(P(worst)),'neg'],['Gross P/L',money(grossNet),grossNet>=0?'pos':'neg'],['Commissions',money(-commTotal),'neg'],['Journaled',l.filter(t=>t.setup||t.entryNotes||t.exitNotes||t.emoEntry).length+' / '+l.length,'']];$('statsgrid').innerHTML=cards.map(x=>`<div class="card stat"><div class="lbl">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');
 let sides={Long:[],Short:[]};l.forEach(t=>{let s=direction(t);if(sides[s])sides[s].push(t)});let sideEntries=Object.entries(sides).filter(([k,v])=>v.length);if(!sideEntries.length)$('sidebreak').innerHTML='<div class="muted">No direction data.</div>';else{$('sidebreak').innerHTML=sideEntries.map(([side,a])=>{let sw=a.filter(t=>P(t)>0),sl=a.filter(t=>P(t)<0),sp=a.reduce((x,t)=>x+P(t),0),savg=sw.length?sw.reduce((x,t)=>x+P(t),0)/sw.length:0,sbest=sw.length?Math.max(...sw.map(t=>P(t))):null;return `<div class="brow"><div class="bname ${side==='Long'?'pos':'neg'}">${side} <small>(${a.length})</small></div><div class="barbg"><div class="bar ${sp>=0?'pos':'neg'}" style="width:${Math.max(4,Math.abs(sp)/(Math.max(1,...sideEntries.map(([_,v])=>Math.abs(v.reduce((x,t)=>x+P(t),0)))))*100)}%"></div></div><div class="amt ${sp>=0?'pos':'neg'}">${money(sp)} · ${sw.length}W/${sl.length}L</div></div><div class="hint" style="margin:-4px 0 4px">${(sw.length/a.length*100).toFixed(1)}% win · avg win ${sw.length?money(savg):'—'} · best win ${sbest===null?'—':money(sbest)}</div>`}).join('')}
 let times=l.filter(t=>entryDate(t));$('timeStats').innerHTML=statRows(times,t=>bucket15(entryDate(t)),timeLabel,(a,b)=>a-b);$('dayStats').innerHTML=statRows(times,t=>entryDate(t).getDay(),k=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][k],(a,b)=>{let order=[1,2,3,4,5,6,0];return order.indexOf(a)-order.indexOf(b)});renderSetupStats(l);renderEmoStats(l);renderEventStats(l);renderCondStats(l);renderTagStats(l);breakdown('symbreak',l,t=>t.symbol)}
@@ -2186,9 +2222,39 @@ function renderBacktest(){
 }
 
 function renderAll(){ showLastBackup(); backupHealth(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest();if($('settings').classList.contains('active')){renderComm();renderCats();renderGh();renderFs();renderCondManage();}}
-try{let x=localStorage.getItem(KEY);if(x)S=Object.assign(S,JSON.parse(x));S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});S.setups=S.setups||[];S.templates=S.templates||{daily:[],weekly:[],monthly:[]};S.tplDefault=S.tplDefault||{};S.events=S.events||{};syncSetups();save()}catch(e){}
-wireTemplates('daily','d','dnote');wireTemplates('weekly','w','wnote');wireTemplates('monthly','m','mnote');
-renderAll();
+(async function boot(){
+ let loaded=null;
+ try{ loaded=await idbGet(); }catch(err){}
+ if(!loaded){
+  // first run after the storage change: migrate whatever localStorage still holds
+  try{ let x=localStorage.getItem(KEY); if(x) loaded=JSON.parse(x); }catch(err){}
+ }
+ if(loaded) S=Object.assign(S,loaded);
+ S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});
+ S.setups=S.setups||[];
+ S.templates=S.templates||{daily:[],weekly:[],monthly:[]};
+ S.tplDefault=S.tplDefault||{};
+ S.events=S.events||{};
+ S.comm=S.comm||{default:0,bySymbol:{}};
+ S.tagCats=S.tagCats||[];
+ S.dayShots=S.dayShots||{};
+ S.conditions=S.conditions||STARTER_CONDITIONS.slice();
+ S.dayConds=S.dayConds||{};
+ S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};
+ try{ syncTagOptions(); }catch(err){}
+ try{ syncSetups(); }catch(err){}
+ save();
+ wireTemplates('daily','d','dnote');wireTemplates('weekly','w','wnote');wireTemplates('monthly','m','mnote');
+ renderAll();
+})();
+
+// surface any unexpected error instead of failing silently
+window.addEventListener('error',e=>{
+ try{ toast('Something went wrong: '+(e.message||'error')); }catch(err){}
+});
+window.addEventListener('unhandledrejection',e=>{
+ try{ toast('Background task failed: '+((e.reason&&e.reason.message)||'error')); }catch(err){}
+});
 })();
 </script>
 </body>
