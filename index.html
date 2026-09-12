@@ -398,6 +398,18 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    <button class="ghost btn-xs" id="commAdd">Add / update</button>
   </div>
 
+  <div class="section">Auto-save to a file (no token needed)</div>
+  <div class="hint">Pick a backup file once — ideally inside <b>iCloud Drive</b>, Dropbox or Google Drive — and the journal rewrites it automatically as you work. Your cloud provider then handles off-device storage and version history. Nothing is stored in this app but a pointer to that file. <b>Works in Chrome and Edge; Safari does not support this yet.</b></div>
+  <div class="card" style="padding:16px 18px;margin:12px 0">
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-xs" id="fsPick">Choose backup file…</button>
+    <button class="ghost btn-xs" id="fsSaveNow">Save now</button>
+    <label class="tplauto"><input type="checkbox" id="fsAuto"> auto-save after changes</label>
+    <button class="ghost btn-xs danger" id="fsForget">Forget file</button>
+   </div>
+   <div class="hint" id="fsState" style="margin-top:10px"></div>
+  </div>
+
   <div class="section">Automatic backup to GitHub</div>
   <div class="note" style="border-color:var(--amber);color:var(--dim)">
    <b style="color:var(--amber)">Read this before setting it up.</b> This stores a GitHub access token in this browser, next to your journal data. Anyone who can use this browser profile could read it. To keep the blast radius small:
@@ -482,7 +494,7 @@ const pad=n=>String(n).padStart(2,'0');
 const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const monthKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-function save(){localStorage.setItem(KEY,JSON.stringify(S));$('sync').textContent='saved locally';if(typeof ghMaybeAuto==='function')ghMaybeAuto();}
+function save(){localStorage.setItem(KEY,JSON.stringify(S));if(typeof backupHealth==='function')backupHealth();if(typeof ghMaybeAuto==='function')ghMaybeAuto();if(typeof fsMaybeAuto==='function')fsMaybeAuto();}
 function toast(x){$('toast').textContent=x;$('toast').classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>$('toast').classList.remove('show'),2200)}
 function parseCSV(txt){let rows=[],row=[],f='',q=false;for(let i=0;i<txt.length;i++){let c=txt[i];if(q){if(c=='"'){if(txt[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else{if(c=='"')q=true;else if(c==','){row.push(f);f=''}else if(c=='\n'){row.push(f);rows.push(row);row=[];f=''}else if(c!='\r')f+=c}}if(f||row.length){row.push(f);rows.push(row)}return rows.filter(r=>r.some(x=>x.trim()!=''))}
 function col(h,cands){let a=h.map(x=>x.trim().toLowerCase());for(let c of cands){let i=a.indexOf(c);if(i>=0)return i}for(let c of cands){let i=a.findIndex(x=>x.includes(c));if(i>=0)return i}return -1}
@@ -1091,7 +1103,128 @@ $('ghAuto').onchange=e=>{
  ghMsg(g.auto?'Auto-backup on. Changes are pushed at most once every 10 minutes.':'Auto-backup off.', g.auto?'ok':null);
 };
 
-function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest();if(v=='settings'){renderComm();renderCats();renderGh();}}
+
+// ===================== AUTO-SAVE TO A LOCAL FILE =====================
+// Uses the File System Access API. The file handle is kept in IndexedDB
+// (handles cannot be serialised into localStorage). No credentials involved.
+const FSDB='blotter-fs', FSKEY='backupHandle';
+function fsOpenDb(){
+ return new Promise((res,rej)=>{
+  let r=indexedDB.open(FSDB,1);
+  r.onupgradeneeded=()=>{ r.result.createObjectStore('kv'); };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+ });
+}
+async function fsPut(v){ let db=await fsOpenDb(); return new Promise((res,rej)=>{ let tx=db.transaction('kv','readwrite'); tx.objectStore('kv').put(v,FSKEY); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }
+async function fsGet(){ let db=await fsOpenDb(); return new Promise((res,rej)=>{ let tx=db.transaction('kv','readonly'); let q=tx.objectStore('kv').get(FSKEY); q.onsuccess=()=>res(q.result||null); q.onerror=()=>rej(q.error); }); }
+async function fsDel(){ let db=await fsOpenDb(); return new Promise((res,rej)=>{ let tx=db.transaction('kv','readwrite'); tx.objectStore('kv').delete(FSKEY); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }
+
+let fsHandle=null;
+function fsMsg(html,kind){
+ let el=$('fsState'); if(!el) return;
+ let color=kind==='ok'?'var(--green)':kind==='err'?'var(--red)':kind==='warn'?'var(--amber)':'var(--faint)';
+ el.innerHTML=`<span style="color:${color}">${html}</span>`;
+}
+function fsSupported(){ return typeof window.showSaveFilePicker==='function'; }
+async function fsEnsurePermission(handle,interactive){
+ if(!handle||!handle.queryPermission) return false;
+ let opts={mode:'readwrite'};
+ if(await handle.queryPermission(opts)==='granted') return true;
+ if(!interactive) return false;
+ return await handle.requestPermission(opts)==='granted';
+}
+async function fsWrite(silent){
+ if(!fsHandle){ if(!silent) fsMsg('Choose a backup file first.','err'); return false; }
+ if(!await fsEnsurePermission(fsHandle,!silent)){
+  if(!silent) fsMsg('Permission to write that file was not granted.','err');
+  return false;
+ }
+ try{
+  let safe=Object.assign({},S);
+  if(safe.gh) safe.gh=Object.assign({},safe.gh,{token:''});
+  let payload=JSON.stringify({_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:safe},null,1);
+  let w=await fsHandle.createWritable();
+  await w.write(payload); await w.close();
+  S.lastBackup=new Date().toISOString(); save(); showLastBackup();
+  fsMsg(`Saved to ${esc(fsHandle.name)} at ${new Date().toLocaleTimeString()} (${(payload.length/1048576).toFixed(2)}MB).`,'ok');
+  return true;
+ }catch(err){ if(!silent) fsMsg('Could not write the file: '+esc(err.message||''),'err'); return false; }
+}
+let fsTimer=null;
+function fsMaybeAuto(){
+ if(!fsHandle||!(S.fsAuto)) return;
+ clearTimeout(fsTimer);
+ fsTimer=setTimeout(()=>fsWrite(true), 8000);
+}
+$('fsPick').onclick=async()=>{
+ if(!fsSupported()){ fsMsg('This browser does not support it. Use Chrome or Edge, or the manual Download backup button.','err'); return; }
+ try{
+  fsHandle=await window.showSaveFilePicker({
+   suggestedName:`blotter-backup-${key(new Date())}.json`,
+   types:[{description:'JSON backup',accept:{'application/json':['.json']}}]
+  });
+  await fsPut(fsHandle);
+  fsMsg(`Linked to ${esc(fsHandle.name)}. Put it in iCloud Drive or Dropbox for off-device safety.`,'ok');
+  await fsWrite(false);
+ }catch(err){ if(err.name!=='AbortError') fsMsg('Could not pick a file.','err'); }
+};
+$('fsSaveNow').onclick=()=>fsWrite(false);
+$('fsForget').onclick=async()=>{
+ fsHandle=null; S.fsAuto=false; await fsDel(); save();
+ $('fsAuto').checked=false;
+ fsMsg('Forgotten. The file itself is untouched.');
+};
+$('fsAuto').onchange=async e=>{
+ if(e.target.checked && !fsHandle){ fsMsg('Choose a backup file first.','err'); e.target.checked=false; return; }
+ S.fsAuto=e.target.checked; save();
+ fsMsg(S.fsAuto?'Auto-save on — the file updates a few seconds after each change.':'Auto-save off.', S.fsAuto?'ok':null);
+};
+async function renderFs(){
+ $('fsAuto').checked=!!S.fsAuto;
+ if(!fsSupported()){ fsMsg('Not supported in this browser. Chrome or Edge required — in Safari, use Download backup instead.','warn'); return; }
+ if(!fsHandle){
+  try{ fsHandle=await fsGet(); }catch(err){}
+ }
+ if(!fsHandle){ fsMsg('No file linked yet.'); return; }
+ let ok=await fsEnsurePermission(fsHandle,false);
+ if(ok) fsMsg(`Linked to ${esc(fsHandle.name)}.${S.lastBackup?' Last saved '+new Date(S.lastBackup).toLocaleString()+'.':''}`,'ok');
+ else fsMsg(`Linked to ${esc(fsHandle.name)}, but this browser session needs permission again — click "Save now" once to re-grant it.`,'warn');
+}
+
+
+// ---- visible backup-health indicator (so silent failures get noticed) ----
+function backupHealth(){
+ let el=$('sync'); if(!el) return;
+ let last=S.lastBackup?new Date(S.lastBackup).getTime():0;
+ if(!last){ el.innerHTML='<span style="color:var(--amber)">never backed up</span>'; return; }
+ let days=Math.floor((Date.now()-last)/86400000);
+ if(days>=7) el.innerHTML=`<span style="color:var(--red)">⚠ backup ${days}d old</span>`;
+ else if(days>=3) el.innerHTML=`<span style="color:var(--amber)">backup ${days}d old</span>`;
+ else el.innerHTML='<span style="color:var(--faint)">backed up</span>';
+}
+// try one last push when the tab is closing, if anything changed since the last one
+window.addEventListener('beforeunload',()=>{
+ let g=(S.gh||{});
+ if(!g.auto||!g.repo||!g.token) return;
+ let last=g.lastPush?new Date(g.lastPush).getTime():0;
+ if(Date.now()-last < 60*1000) return;   // pushed very recently, nothing to do
+ try{
+  let safe=Object.assign({},S);
+  if(safe.gh) safe.gh=Object.assign({},safe.gh,{token:''});
+  let payload=JSON.stringify({_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:safe},null,1);
+  // best-effort: keepalive lets the request outlive the page
+  fetch(`https://api.github.com/repos/${g.repo}/contents/${encodeURIComponent((g.path||'blotter-backup.json').replace(/^\/+/,''))}?ref=${encodeURIComponent(g.branch||'main')}`,
+   {headers:ghHeaders(g.token),keepalive:true})
+   .then(r=>r.ok?r.json():null)
+   .then(j=>fetch(`https://api.github.com/repos/${g.repo}/contents/${encodeURIComponent((g.path||'blotter-backup.json').replace(/^\/+/,''))}`,{
+     method:'PUT',keepalive:true,
+     headers:Object.assign({'Content-Type':'application/json'},ghHeaders(g.token)),
+     body:JSON.stringify(Object.assign({message:`Journal backup ${new Date().toISOString()}`,content:toB64(payload),branch:g.branch||'main'}, j&&j.sha?{sha:j.sha}:{}))
+   }));
+ }catch(err){}
+});
+
+function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest();if(v=='settings'){renderComm();renderCats();renderGh();renderFs();}}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>navigate(b.dataset.view));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('menu').onclick=()=>$('rail').classList.toggle('open');
 $('browse').onclick=()=>$('file').click();$('file').onchange=e=>e.target.files[0]&&importFile(e.target.files[0]);['dragenter','dragover'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.remove('drag')}));$('drop').ondrop=e=>e.dataTransfer.files[0]&&importFile(e.dataTransfer.files[0]);
 function curve(svgId,totalId,firstId,lastId){let list=[...S.trades].sort((a,b)=>new Date(a.dateISO||0)-new Date(b.dateISO||0));if(!list.length){$(totalId).textContent='$0';return}let c=0,p=list.map(t=>c+=P(t)),min=Math.min(0,...p),max=Math.max(0,...p),range=max-min||1,w=600,h=84,pad=4,sy=v=>h-pad-(v-min)/range*(h-pad*2),dx=p.length>1?(w-pad*2)/(p.length-1):0,d=p.map((v,i)=>(i?'L':'M')+(pad+i*dx).toFixed(1)+','+sy(v).toFixed(1)).join(' '),z=sy(0),color=c>=0?'#3ECF8E':'#F0554F';$(totalId).textContent=short(c);$(totalId).className='bigval '+(c>=0?'pos':'neg');$(svgId).innerHTML=`<line x1="4" y1="${z}" x2="596" y2="${z}" stroke="#1F262D" stroke-dasharray="3,3"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/>`;let a=new Date(list[0].dateISO),b=new Date(list.at(-1).dateISO);$(firstId).textContent=a.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});$(lastId).textContent=b.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}
@@ -1911,7 +2044,7 @@ function renderBacktest(){
  if(btActiveId) renderBtStats();
 }
 
-function renderAll(){ showLastBackup(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest();if($('settings').classList.contains('active')){renderComm();renderCats();renderGh();}}
+function renderAll(){ showLastBackup(); backupHealth(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest();if($('settings').classList.contains('active')){renderComm();renderCats();renderGh();renderFs();}}
 try{let x=localStorage.getItem(KEY);if(x)S=Object.assign(S,JSON.parse(x));S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});S.setups=S.setups||[];S.templates=S.templates||{daily:[],weekly:[],monthly:[]};S.tplDefault=S.tplDefault||{};S.events=S.events||{};syncSetups();save()}catch(e){}
 wireTemplates('daily','d','dnote');wireTemplates('weekly','w','wnote');wireTemplates('monthly','m','mnote');
 renderAll();
