@@ -26,6 +26,8 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}input,textarea,s
 .section{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 9px}.mini{overflow:hidden}.minirow{display:flex;justify-content:space-between;gap:12px;padding:10px 13px;border-top:1px solid var(--soft);font-size:12px;cursor:pointer}.minirow:first-child{border-top:0}.minirow:hover{background:var(--panel2)}
 textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;resize:vertical}textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)}
 
+.notrade{background:var(--panel2);border:1px dashed var(--border);border-radius:9px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.notrade b{color:var(--text)}
 .catcard{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px}
 .cathead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
 .cathead .nm{font-weight:650;font-size:14px}
@@ -85,7 +87,10 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 .pnlblock.win .amt2{color:var(--green)}
 .pnlblock.loss .amt2{color:var(--red)}
 .pnlblock .cnt{font:9px monospace;color:var(--dim);display:block;margin-top:1px}
-.cell.journaled .pnlblock{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.cell[data-k]{cursor:pointer}
+.cell[data-k]:hover{border-color:var(--faint)}
+.cell.journaled{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.notedmark{font:9px monospace;color:var(--accent);opacity:.85}
 .holname{font:8.5px monospace;color:var(--faint)}
 .weekcell{min-height:92px;border:1px solid var(--soft);border-radius:8px;background:var(--panel2);padding:7px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:2px}
 .wkpnl{font:700 12.5px monospace}
@@ -222,6 +227,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
  <section class="view" id="daily">
   <div class="head"><h1>Daily review</h1><p>Review one trading session at a time.</p></div>
   <div class="period"><button id="dp">‹</button><div class="current" id="dc">—</div><button id="dn">›</button></div>
+  <div id="notradebanner"></div>
   <div class="summary"><div class="card stat"><div class="lbl">Net P/L</div><div class="value" id="dpl">$0</div></div><div class="card stat"><div class="lbl">Trades</div><div class="value" id="dct">0</div></div><div class="card stat"><div class="lbl">Win rate</div><div class="value" id="dwr">—</div></div></div>
   <div class="section">Events this day</div>
   <div class="evrow" id="devents"></div>
@@ -232,7 +238,11 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   </div>
 
   <div class="section">Trades this day</div><div class="card mini" id="dlist"></div>
-  <div class="section">Session notes</div><div class="tplbar"><select id="dtpl"></select><button class="ghost btn-xs" id="dtplIns">Insert</button><button class="ghost btn-xs" id="dtplSave">Save current as template</button><button class="ghost btn-xs danger" id="dtplDel">Delete</button><label class="tplauto"><input type="checkbox" id="dtplAuto"> auto-fill blank days</label></div><textarea id="dnote" placeholder="Discipline, focus, mistakes, what you did well, what you want to improve..."></textarea><br><br><button class="btn" id="dsave">Save notes</button>
+  <div class="section">Chart images for the day</div>
+  <div class="shotzone" id="dayshotzone">Paste (Cmd/Ctrl+V), drop images, or click to browse<input hidden type="file" id="dayshotsin" accept="image/*" multiple></div>
+  <div class="shots" id="dayshots"></div>
+
+  <div class="section">Session notes</div><div class="tplbar"><select id="dtpl"></select><button class="ghost btn-xs" id="dtplIns">Insert</button><button class="ghost btn-xs" id="dtplSave">Save current as template</button><button class="ghost btn-xs danger" id="dtplDel">Delete</button><label class="tplauto"><input type="checkbox" id="dtplAuto"> auto-fill blank days</label></div><textarea id="dnote" placeholder="Traded or not — what happened? If you stayed flat, why: no setup, wrong conditions, stepped away, protecting a good week..."></textarea><br><br><button class="btn" id="dsave">Save notes</button>
  </section>
 
  <section class="view" id="weekly">
@@ -388,6 +398,36 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    <button class="ghost btn-xs" id="commAdd">Add / update</button>
   </div>
 
+  <div class="section">Automatic backup to GitHub</div>
+  <div class="note" style="border-color:var(--amber);color:var(--dim)">
+   <b style="color:var(--amber)">Read this before setting it up.</b> This stores a GitHub access token in this browser, next to your journal data. Anyone who can use this browser profile could read it. To keep the blast radius small:
+   <ul style="margin:8px 0 0 16px;padding:0;line-height:1.7">
+    <li>Use a <b>fine-grained</b> token, not a classic one</li>
+    <li>Grant it access to <b>only your private backup repo</b> — nothing else</li>
+    <li>Give it just <b>Contents: Read and write</b></li>
+    <li>Set an <b>expiration date</b> and renew it when it lapses</li>
+    <li>Point it at a <b>private</b> repo — never your public Pages repo</li>
+   </ul>
+  </div>
+
+  <div class="card" style="padding:16px 18px;margin:12px 0">
+   <div class="two">
+    <div class="field"><label>Repository (owner/name)</label><input id="ghRepo" placeholder="giuliaalbers/blotter-backups"></div>
+    <div class="field"><label>Branch</label><input id="ghBranch" placeholder="main"></div>
+   </div>
+   <div class="two" style="margin-top:12px">
+    <div class="field"><label>File path in repo</label><input id="ghPath" placeholder="blotter-backup.json"></div>
+    <div class="field"><label>Fine-grained access token</label><input id="ghToken" type="password" placeholder="github_pat_..."></div>
+   </div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+    <button class="ghost btn-xs" id="ghTest">Test connection</button>
+    <button class="btn btn-xs" id="ghPush">Back up to GitHub now</button>
+    <label class="tplauto"><input type="checkbox" id="ghAuto"> auto-backup after changes (max once every 10 min)</label>
+   </div>
+   <div class="hint" id="ghState" style="margin-top:10px"></div>
+  </div>
+  <div class="hint">The same file path is overwritten each time, but Git keeps every commit — so you can browse or restore any previous version from the repo's history. Download the file from GitHub and use "Restore from backup" on the Upload tab.</div>
+
   <div class="section">Custom trade tags</div>
   <div class="hint">Define your own dimensions — entry type, take-profit type, session, anything. Each gets a dropdown on every trade and its own win-rate table in Stats.</div>
   <div id="catList"></div>
@@ -432,7 +472,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
 <script>
 (()=> {
 const KEY='blotter-trade-journal-v2';
-let S={trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},tagCats:[]}, modalId=null;
+let S={trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},tagCats:[],dayShots:{},gh:{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null}}, modalId=null;
 let cursors={daily:new Date(),weekly:new Date(),monthly:new Date(),calendar:new Date()};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -442,7 +482,7 @@ const pad=n=>String(n).padStart(2,'0');
 const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const monthKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-function save(){localStorage.setItem(KEY,JSON.stringify(S));$('sync').textContent='saved locally';}
+function save(){localStorage.setItem(KEY,JSON.stringify(S));$('sync').textContent='saved locally';if(typeof ghMaybeAuto==='function')ghMaybeAuto();}
 function toast(x){$('toast').textContent=x;$('toast').classList.add('show');clearTimeout(window._toast);window._toast=setTimeout(()=>$('toast').classList.remove('show'),2200)}
 function parseCSV(txt){let rows=[],row=[],f='',q=false;for(let i=0;i<txt.length;i++){let c=txt[i];if(q){if(c=='"'){if(txt[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else{if(c=='"')q=true;else if(c==','){row.push(f);f=''}else if(c=='\n'){row.push(f);rows.push(row);row=[];f=''}else if(c!='\r')f+=c}}if(f||row.length){row.push(f);rows.push(row)}return rows.filter(r=>r.some(x=>x.trim()!=''))}
 function col(h,cands){let a=h.map(x=>x.trim().toLowerCase());for(let c of cands){let i=a.indexOf(c);if(i>=0)return i}for(let c of cands){let i=a.findIndex(x=>x.includes(c));if(i>=0)return i}return -1}
@@ -460,7 +500,10 @@ function fp(t){return [t.symbol,t.boughtTs,t.soldTs,t.buyPrice,t.sellPrice,t.pnl
 async function importFile(file){let txt=await file.text(),arr=parseTrad(txt);if(!arr.length){$('status').classList.add('show');$('statusText').textContent='No trades found. Check that this is a Tradovate position history CSV.';return}let seen=new Set(S.trades.map(t=>t.fingerprint||fp(t))),added=0;arr.forEach(p=>{let f=fp(p);if(seen.has(f))return;p.fingerprint=f;S.trades.push(p);seen.add(f);added++});S.trades.sort((a,b)=>(new Date(b.dateISO||0))-(new Date(a.dateISO||0)));save();$('status').classList.add('show');$('statusText').innerHTML=`<span class="ok">✓ Imported ${added} new trade${added==1?'':'s'}</span>${arr.length-added?` · ${arr.length-added} already logged`:''}`;toast(`${added} trade${added==1?'':'s'} imported`);renderAll()}
 // ===================== BACKUP / RESTORE =====================
 function backupNow(){
- let payload={_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:S};
+ // never write the GitHub token into a backup file
+ let safe=Object.assign({},S);
+ if(safe.gh) safe.gh=Object.assign({},safe.gh,{token:''});
+ let payload={_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:safe};
  let blob=new Blob([JSON.stringify(payload,null,1)],{type:'application/json'});
  let url=URL.createObjectURL(blob);
  let a=document.createElement('a');
@@ -495,11 +538,14 @@ async function restoreFrom(file){
   return;
  }
  let n=incoming.trades.length, bt=Object.keys(incoming.backtests||{}).length;
+ let keepToken=(S.gh&&S.gh.token)||'';
  if(!confirm(`Restore this backup?\n\n${n} trades, ${bt} backtest${bt==1?'':'s'}\n\nThis REPLACES everything currently in the journal. Your current data will be gone.`)) return;
- S=Object.assign({trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},tagCats:[]},incoming);
+ S=Object.assign({trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},tagCats:[],dayShots:{}},incoming);
+ S.dayShots=S.dayShots||{};
  S.tagCats=S.tagCats||[];
- S.events=S.events||{};S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];syncTagOptions();
+ S.events=S.events||{};S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  S.templates=S.templates||{daily:[],weekly:[],monthly:[]}; S.tplDefault=S.tplDefault||{};
+ if(keepToken){ S.gh=S.gh||{}; S.gh.token=keepToken; }
  S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});
  syncSetups(); save();
  $('backupStatus').classList.add('show');
@@ -665,7 +711,7 @@ function customEvents(d){ S.events=S.events||{}; return S.events[key(d)]||[]; }
 function allEvents(d){ return autoEvents(d).concat(customEvents(d).map(n=>({name:n,cls:'ev-custom',custom:true}))); }
 function addCustomEvent(d,name){
  name=(name||'').trim(); if(!name) return;
- S.events=S.events||{};S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];syncTagOptions();
+ S.events=S.events||{};S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  let k=key(d); S.events[k]=S.events[k]||[];
  if(!S.events[k].includes(name)) S.events[k].push(name);
  save();
@@ -698,7 +744,7 @@ const EVENT_SUGGESTIONS=['CPI','PPI','PCE','Jackson Hole','GDP','Retail Sales','
 // the rate instantly reflows every stat, chart and calendar cell.
 const DEFAULT_COMM={MNQ:1.04,MES:1.04,MYM:1.04,M2K:1.04,MGC:1.04,MCL:1.04,NQ:2.08,ES:2.08,YM:2.08,RTY:2.08,GC:2.08,CL:2.08};
 function commRate(sym){
- S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];syncTagOptions();
+ S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  let s=String(sym||'').trim().toUpperCase();
  let v=S.comm.bySymbol?S.comm.bySymbol[s]:undefined;
  if(v!==undefined&&v!==null&&v!=='') return +v||0;
@@ -712,7 +758,7 @@ function totalComm(list){ return (list||[]).reduce((a,t)=>a+commFor(t),0); }
 
 // ---- settings: commissions ----
 function renderComm(){
- S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];syncTagOptions();
+ S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  $('commDefault').value=S.comm.default||'';
  let rows=Object.entries(S.comm.bySymbol||{}).sort((a,b)=>a[0].localeCompare(b[0]));
  $('commRows').innerHTML = rows.length
@@ -750,7 +796,7 @@ $('commAdd').onclick=()=>{
 };
 $('commPreset').onclick=()=>{
  if(!confirm('Load typical all-in round-turn rates for common futures?\n\nThese are ballpark figures — check them against your own broker statement and edit as needed.')) return;
- S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];syncTagOptions();
+ S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  S.comm.bySymbol=Object.assign({},S.comm.bySymbol,DEFAULT_COMM);
  save(); renderComm(); renderAll(); toast('Preset rates loaded — verify against your broker');
 };
@@ -900,7 +946,152 @@ function renderTagStats(l){
  }).join('');
 }
 
-function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest();if(v=='settings'){renderComm();renderCats();}}
+
+// ===================== DAILY SCREENSHOTS =====================
+function dayShots(d){ S.dayShots=S.dayShots||{}; return S.dayShots[key(d)]||[]; }
+function setDayShots(d,list){
+ S.dayShots=S.dayShots||{};
+ let k=key(d);
+ if(list&&list.length) S.dayShots[k]=list; else delete S.dayShots[k];
+ save();
+}
+async function addDayShots(files){
+ let d=cursors.daily, list=dayShots(d).slice();
+ let n=0;
+ for(let f of files){
+  if(!f.type||!f.type.startsWith('image/')) continue;
+  let r=new FileReader();
+  await new Promise(res=>{ r.onload=()=>{ list.push(r.result); n++; res(); }; r.readAsDataURL(f); });
+ }
+ if(n){ setDayShots(d,list); renderDayShots(); toast(`Added ${n} image${n==1?'':'s'} to this day`); }
+}
+function renderDayShots(){
+ let d=cursors.daily, list=dayShots(d);
+ let host=$('dayshots'); if(!host) return;
+ host.innerHTML=list.map((s,i)=>`<div class="thumb"><img src="${s}" data-dopen="${i}"><button data-drm="${i}">✕</button></div>`).join('');
+ host.querySelectorAll('[data-drm]').forEach(b=>b.onclick=e=>{
+  e.stopPropagation();
+  let l=dayShots(cursors.daily).slice(); l.splice(+b.dataset.drm,1);
+  setDayShots(cursors.daily,l); renderDayShots(); renderCalendar();
+ });
+ host.querySelectorAll('img[data-dopen]').forEach(im=>im.onclick=()=>openLightbox(dayShots(cursors.daily),+im.dataset.dopen));
+}
+// a day counts as journaled if it has notes, images, or any journaled trade
+function dayHasJournal(d){
+ let k=key(d);
+ if(S.daily[k]&&S.daily[k].trim()) return true;
+ if((S.dayShots&&S.dayShots[k]||[]).length) return true;
+ if((S.events&&S.events[k]||[]).length) return true;
+ return S.trades.some(t=>t.dateISO&&key(new Date(t.dateISO))===k&&(t.setup||t.entryNotes||t.exitNotes||t.emoEntry||t.emoExit));
+}
+
+
+// ===================== GITHUB AUTO-BACKUP =====================
+// Writes the journal to a private repo via the GitHub Contents API.
+// The same path is overwritten each time; git history keeps every version.
+function ghCfg(){ S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null,sha:null}; return S.gh; }
+function ghMsg(html,kind){
+ let el=$('ghState'); if(!el) return;
+ let color = kind==='ok'?'var(--green)':kind==='err'?'var(--red)':kind==='warn'?'var(--amber)':'var(--faint)';
+ el.innerHTML=`<span style="color:${color}">${html}</span>`;
+}
+// UTF-8 safe base64 (journal contains unicode + base64 images)
+function toB64(str){
+ let bytes=new TextEncoder().encode(str);
+ let bin='', chunk=0x8000;
+ for(let i=0;i<bytes.length;i+=chunk) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));
+ return btoa(bin);
+}
+function ghHeaders(token){
+ return {'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+}
+async function ghTest(){
+ let g=ghCfg();
+ if(!g.repo||!g.token){ ghMsg('Fill in the repository and token first.','err'); return false; }
+ ghMsg('Checking…');
+ try{
+  let r=await fetch(`https://api.github.com/repos/${g.repo}`,{headers:ghHeaders(g.token)});
+  if(r.status===404){ ghMsg('Repo not found, or the token has no access to it. Check the owner/name and that the token lists this repo.','err'); return false; }
+  if(r.status===401){ ghMsg('Token rejected. It may be expired or mistyped.','err'); return false; }
+  if(!r.ok){ ghMsg(`GitHub returned ${r.status}.`,'err'); return false; }
+  let j=await r.json();
+  if(!j.private){ ghMsg('Connected — but this repo is PUBLIC. Your trades would be visible to anyone. Use a private repo.','warn'); return true; }
+  if(j.permissions&&j.permissions.push===false){ ghMsg('Connected, but the token cannot write. Give it Contents: Read and write.','err'); return false; }
+  ghMsg(`Connected to private repo ${esc(j.full_name)}. Ready to back up.`,'ok');
+  return true;
+ }catch(err){ ghMsg('Network error reaching GitHub.','err'); return false; }
+}
+async function ghPush(silent){
+ let g=ghCfg();
+ if(!g.repo||!g.token){ if(!silent) ghMsg('Fill in the repository and token first.','err'); return false; }
+ let path=(g.path||'blotter-backup.json').replace(/^\/+/,'');
+ let branch=g.branch||'main';
+ let safe=Object.assign({},S);
+ if(safe.gh) safe.gh=Object.assign({},safe.gh,{token:''});
+ let payload=JSON.stringify({_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:safe},null,1);
+ let sizeMB=payload.length/1048576;
+ if(sizeMB>25){ ghMsg(`Backup is ${sizeMB.toFixed(1)}MB — too large for the GitHub file API. Remove some screenshots or use manual backups.`,'err'); return false; }
+ if(!silent) ghMsg(`Uploading ${sizeMB.toFixed(2)}MB…`);
+ try{
+  // need the current file's sha to update it
+  let sha=null;
+  let head=await fetch(`https://api.github.com/repos/${g.repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`,{headers:ghHeaders(g.token)});
+  if(head.ok){ let hj=await head.json(); sha=hj.sha; }
+  else if(head.status!==404){
+   if(!silent) ghMsg(`Could not read the existing file (${head.status}).`,'err');
+   return false;
+  }
+  let body={message:`Journal backup ${new Date().toISOString()}`,content:toB64(payload),branch};
+  if(sha) body.sha=sha;
+  let r=await fetch(`https://api.github.com/repos/${g.repo}/contents/${encodeURIComponent(path)}`,{
+   method:'PUT',headers:Object.assign({'Content-Type':'application/json'},ghHeaders(g.token)),body:JSON.stringify(body)
+  });
+  if(!r.ok){
+   let txt=await r.text();
+   if(!silent) ghMsg(`Upload failed (${r.status}). ${esc(txt.slice(0,160))}`,'err');
+   return false;
+  }
+  g.lastPush=new Date().toISOString();
+  S.lastBackup=g.lastPush;
+  save(); showLastBackup();
+  if(!silent) ghMsg(`Backed up ${sizeMB.toFixed(2)}MB to ${esc(g.repo)} at ${new Date().toLocaleTimeString()}.`,'ok');
+  else ghMsg(`Auto-backed up at ${new Date().toLocaleTimeString()}.`,'ok');
+  return true;
+ }catch(err){ if(!silent) ghMsg('Network error during upload.','err'); return false; }
+}
+// auto-backup: debounced, and never more than once every 10 minutes
+let ghTimer=null;
+function ghMaybeAuto(){
+ let g=ghCfg();
+ if(!g.auto||!g.repo||!g.token) return;
+ clearTimeout(ghTimer);
+ ghTimer=setTimeout(()=>{
+  let last=g.lastPush?new Date(g.lastPush).getTime():0;
+  if(Date.now()-last < 10*60*1000) return;
+  ghPush(true);
+ }, 20000);
+}
+function renderGh(){
+ let g=ghCfg();
+ $('ghRepo').value=g.repo||''; $('ghBranch').value=g.branch||'main';
+ $('ghPath').value=g.path||'blotter-backup.json'; $('ghToken').value=g.token||'';
+ $('ghAuto').checked=!!g.auto;
+ if(g.lastPush) ghMsg(`Last pushed ${new Date(g.lastPush).toLocaleString()}.`);
+}
+$('ghRepo').oninput=e=>{ ghCfg().repo=e.target.value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,''); save(); };
+$('ghBranch').oninput=e=>{ ghCfg().branch=e.target.value.trim()||'main'; save(); };
+$('ghPath').oninput=e=>{ ghCfg().path=e.target.value.trim()||'blotter-backup.json'; save(); };
+$('ghToken').oninput=e=>{ ghCfg().token=e.target.value.trim(); save(); };
+$('ghTest').onclick=ghTest;
+$('ghPush').onclick=()=>ghPush(false);
+$('ghAuto').onchange=e=>{
+ let g=ghCfg();
+ if(e.target.checked && (!g.repo||!g.token)){ ghMsg('Set the repository and token first.','err'); e.target.checked=false; return; }
+ g.auto=e.target.checked; save();
+ ghMsg(g.auto?'Auto-backup on. Changes are pushed at most once every 10 minutes.':'Auto-backup off.', g.auto?'ok':null);
+};
+
+function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest();if(v=='settings'){renderComm();renderCats();renderGh();}}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>navigate(b.dataset.view));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('menu').onclick=()=>$('rail').classList.toggle('open');
 $('browse').onclick=()=>$('file').click();$('file').onchange=e=>e.target.files[0]&&importFile(e.target.files[0]);['dragenter','dragover'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.remove('drag')}));$('drop').ondrop=e=>e.dataTransfer.files[0]&&importFile(e.dataTransfer.files[0]);
 function curve(svgId,totalId,firstId,lastId){let list=[...S.trades].sort((a,b)=>new Date(a.dateISO||0)-new Date(b.dateISO||0));if(!list.length){$(totalId).textContent='$0';return}let c=0,p=list.map(t=>c+=P(t)),min=Math.min(0,...p),max=Math.max(0,...p),range=max-min||1,w=600,h=84,pad=4,sy=v=>h-pad-(v-min)/range*(h-pad*2),dx=p.length>1?(w-pad*2)/(p.length-1):0,d=p.map((v,i)=>(i?'L':'M')+(pad+i*dx).toFixed(1)+','+sy(v).toFixed(1)).join(' '),z=sy(0),color=c>=0?'#3ECF8E':'#F0554F';$(totalId).textContent=short(c);$(totalId).className='bigval '+(c>=0?'pos':'neg');$(svgId).innerHTML=`<line x1="4" y1="${z}" x2="596" y2="${z}" stroke="#1F262D" stroke-dasharray="3,3"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/>`;let a=new Date(list[0].dateISO),b=new Date(list.at(-1).dateISO);$(firstId).textContent=a.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});$(lastId).textContent=b.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}
@@ -1026,12 +1217,7 @@ const HOLIDAYS={
 };
 function holidayName(d){ return HOLIDAYS[key(d)]||null; }
 // a day counts as journaled if it has session notes, or any trade that has been journaled
-function isJournaled(d){
- let k=key(d);
- if(S.daily[k] && S.daily[k].trim()) return true;
- return S.trades.some(t=>t.dateISO && key(new Date(t.dateISO))===k &&
-   (t.setup||t.entryNotes||t.exitNotes||t.emoEntry||t.emoExit));
-}
+function isJournaled(d){ return dayHasJournal(d); }
 
 function renderCalendar(){
  let d=cursors.calendar,y=d.getFullYear(),m=d.getMonth();
@@ -1083,15 +1269,18 @@ function renderCalendar(){
 
    let body='';
    if(e){
-    body=`<div class="pnlblock ${e.p>=0?'win':'loss'}" data-k="${k}">
+    body=`<div class="pnlblock ${e.p>=0?'win':'loss'}">
       <span class="amt2">${e.p>=0?'':'-'}$${Math.abs(e.p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
       <span class="cnt">${e.c} trade${e.c==1?'':'s'}</span>
     </div>`;
-   } else if(hol){
-    body=`<div class="holname">${esc(hol)}</div>`;
+   } else {
+    // no trades: show the journal marker if the day was written up, else the holiday
+    let noted=(S.daily[k]&&S.daily[k].trim())||(S.dayShots&&(S.dayShots[k]||[]).length);
+    if(noted) body=`<div class="notedmark">✎ journaled</div>`;
+    else if(hol) body=`<div class="holname">${esc(hol)}</div>`;
    }
 
-   cells+=`<div class="${cl}"><div class="cellhead"><span class="daynum">${x.getDate()}</span>${badges}</div>${body}</div>`;
+   cells+=`<div class="${cl}" data-k="${k}"><div class="cellhead"><span class="daynum">${x.getDate()}</span>${badges}</div>${body}</div>`;
   } else {
    cells+='<div class="cell blank"></div>';
   }
@@ -1111,7 +1300,7 @@ function renderCalendar(){
   }
  }
  $('cal').innerHTML=cells;
- document.querySelectorAll('#cal .pnlblock[data-k]').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('#cal .cell[data-k]').forEach(b=>b.onclick=()=>{
   let [a,mm,dd]=b.dataset.k.split('-').map(Number);
   cursors.daily=new Date(a,mm-1,dd);
   navigate('daily');
@@ -1119,11 +1308,37 @@ function renderCalendar(){
 }
 
 $('cp').onclick=()=>{cursors.calendar.setMonth(cursors.calendar.getMonth()-1);renderCalendar()};$('cn').onclick=()=>{cursors.calendar.setMonth(cursors.calendar.getMonth()+1);renderCalendar()};$('ct').onclick=()=>{cursors.calendar=new Date();renderCalendar()};
-function renderDaily(){let d=cursors.daily,k=key(d),l=tradesDate(d),net=l.reduce((a,t)=>a+P(t),0),wins=l.filter(t=>P(t)>0).length;$('dc').textContent=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});$('dpl').textContent=money(net);$('dpl').className='value '+(net>=0?'pos':'neg');$('dct').textContent=l.length;$('dwr').textContent=l.length?Math.round(wins/l.length*100)+'%':'—';$('dlist').innerHTML=l.length?l.map(t=>`<div class="minirow" data-id="${t.id}"><span><b>${esc(t.symbol)}</b> · <span class="${direction(t).toLowerCase()=='long'?'pos':direction(t).toLowerCase()=='short'?'neg':''}">${esc(direction(t))}</span> · ${esc(t.setup||'no setup')}</span><span class="${P(t)>=0?'pos':'neg'}">${money(P(t))}</span></div>`).join(''):'<div class="empty" style="padding:25px">No trades this day.</div>';document.querySelectorAll('#dlist [data-id]').forEach(x=>x.onclick=()=>openModal(x.dataset.id));$('dnote').value=S.daily[k]||'';maybeAutoTemplate('daily','dtpl','dnote');renderDailyEvents(d)}
+function renderDaily(){let d=cursors.daily,k=key(d),l=tradesDate(d),net=l.reduce((a,t)=>a+P(t),0),wins=l.filter(t=>P(t)>0).length;$('dc').textContent=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});$('dpl').textContent=money(net);$('dpl').className='value '+(net>=0?'pos':'neg');$('dct').textContent=l.length;$('dwr').textContent=l.length?Math.round(wins/l.length*100)+'%':'—';$('dlist').innerHTML=l.length?l.map(t=>`<div class="minirow" data-id="${t.id}"><span><b>${esc(t.symbol)}</b> · <span class="${direction(t).toLowerCase()=='long'?'pos':direction(t).toLowerCase()=='short'?'neg':''}">${esc(direction(t))}</span> · ${esc(t.setup||'no setup')}</span><span class="${P(t)>=0?'pos':'neg'}">${money(P(t))}</span></div>`).join(''):'<div class="empty" style="padding:25px">No trades this day.</div>';document.querySelectorAll('#dlist [data-id]').forEach(x=>x.onclick=()=>openModal(x.dataset.id));$('dnote').value=S.daily[k]||'';maybeAutoTemplate('daily','dtpl','dnote');renderDailyEvents(d);renderDayShots();
+ // no-trade banner
+ let nb=$('notradebanner');
+ if(!l.length){
+  let hol=holidayName(d), wknd=(d.getDay()===0||d.getDay()===6);
+  let why = hol?`Market closed — ${esc(hol)}.`:(wknd?'Weekend — market closed.':'No trades logged this day.');
+  let has=(S.daily[k]&&S.daily[k].trim())||dayShots(d).length;
+  nb.innerHTML=`<div class="notrade"><b>${why}</b><span>${has?'You journaled it.':'Worth a note on why you stayed flat — that is data too.'}</span></div>`;
+ } else nb.innerHTML='';
+}
 $('dp').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()-1);renderDaily()};$('dn').onclick=()=>{cursors.daily.setDate(cursors.daily.getDate()+1);renderDaily()};$('dsave').onclick=()=>{S.daily[key(cursors.daily)]=$('dnote').value;save();toast('Daily notes saved')};
 $('evsuggest').innerHTML=EVENT_SUGGESTIONS.map(x=>`<option value="${esc(x)}">`).join('');
 function doAddEvent(){let v=$('devinput').value.trim();if(!v)return;addCustomEvent(cursors.daily,v);$('devinput').value='';renderDailyEvents(cursors.daily);renderCalendar();toast('Event added');}
 $('devadd').onclick=doAddEvent;
+$('dayshotzone').onclick=()=>$('dayshotsin').click();
+$('dayshotsin').onchange=()=>{ addDayShots($('dayshotsin').files); $('dayshotsin').value=''; };
+['dragenter','dragover'].forEach(ev=>$('dayshotzone').addEventListener(ev,e=>{e.preventDefault();$('dayshotzone').style.borderColor='var(--accent)'}));
+['dragleave','drop'].forEach(ev=>$('dayshotzone').addEventListener(ev,e=>{e.preventDefault();$('dayshotzone').style.borderColor=''}));
+$('dayshotzone').addEventListener('drop',e=>{ addDayShots(e.dataTransfer.files||[]); });
+// paste images into the day journal (only when Daily is open and no trade modal is up)
+document.addEventListener('paste',e=>{
+ if(!$('daily').classList.contains('active')) return;
+ if($('back').classList.contains('show')) return;
+ let cd=e.clipboardData||window.clipboardData; if(!cd) return;
+ let imgs=[];
+ for(let item of (cd.items||[])){ if(item.type&&item.type.startsWith('image/')){ let f=item.getAsFile(); if(f) imgs.push(f); } }
+ if(!imgs.length&&cd.files){ for(let f of cd.files){ if(f.type&&f.type.startsWith('image/')) imgs.push(f); } }
+ if(!imgs.length) return;
+ e.preventDefault();
+ addDayShots(imgs);
+});
 $('devinput').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();doAddEvent();}};
 const EMO_LABELS={calm:'Calm',confident:'Confident',hesitant:'Hesitant',fomo:'FOMO',revenge:'Revenge',satisfied:'Satisfied',relieved:'Relieved',fearful:'Fearful',frustrated:'Frustrated',regret:'Regret'};
 function breakdown(id,list,fn){let g={};list.forEach(t=>{let k=fn(t);if(!k)return;g[k]??={p:0,c:0};g[k].p+=P(t);g[k].c++});let a=Object.entries(g).sort((x,y)=>Math.abs(y[1].p)-Math.abs(x[1].p));if(!a.length){$(id).innerHTML='<div style="color:var(--faint);font-size:12px">Nothing logged yet.</div>';return}let mx=Math.max(1,...a.map(x=>Math.abs(x[1].p)));$(id).innerHTML=a.map(([k,v])=>`<div class="brow"><div class="bname">${esc(EMO_LABELS[k]||k)} <small>(${v.c})</small></div><div class="barbg"><div class="bar ${v.p>=0?'pos':'neg'}" style="width:${Math.max(4,Math.abs(v.p)/mx*100)}%"></div></div><div class="amt ${v.p>=0?'pos':'neg'}">${money(v.p)}</div></div>`).join('')}
@@ -1696,7 +1911,7 @@ function renderBacktest(){
  if(btActiveId) renderBtStats();
 }
 
-function renderAll(){ showLastBackup(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest();if($('settings').classList.contains('active')){renderComm();renderCats();}}
+function renderAll(){ showLastBackup(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest();if($('settings').classList.contains('active')){renderComm();renderCats();renderGh();}}
 try{let x=localStorage.getItem(KEY);if(x)S=Object.assign(S,JSON.parse(x));S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});S.setups=S.setups||[];S.templates=S.templates||{daily:[],weekly:[],monthly:[]};S.tplDefault=S.tplDefault||{};S.events=S.events||{};syncSetups();save()}catch(e){}
 wireTemplates('daily','d','dnote');wireTemplates('weekly','w','wnote');wireTemplates('monthly','m','mnote');
 renderAll();
