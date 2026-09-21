@@ -209,6 +209,10 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   </div>
   <div class="status" id="backupStatus"><span id="backupStatusText"></span></div>
   <div class="hint" id="lastBackup" style="margin-top:8px"></div>
+  <div class="hint" id="lastFull" style="margin-top:2px"></div>
+  <div class="note" style="margin-top:10px">
+   <b>These two cover different failures.</b> The GitHub backup protects you if this Mac dies. But if Safari clears site data it also erases your saved token, so recovery there means issuing a new one first. The <b>downloaded file is self-contained</b> — images included, no token, no internet needed. Keep a recent one in iCloud Drive and nothing can strand you.
+  </div>
   <div class="hint" id="persistState" style="margin-top:4px"></div>
  </section>
 
@@ -408,6 +412,18 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    </div>
   </div>
 
+  <div class="section">Point values ($ per 1.00 point, per contract)</div>
+  <div class="hint">Used for dollar figures that are calculated rather than imported — backtests and "money left on the table". Contract months are stripped automatically, so <code>MNQZ5</code> is treated as <code>MNQ</code>. Override any value here if your broker differs.</div>
+  <div class="card" style="overflow:hidden;margin-bottom:12px">
+   <div class="commhead"><div>Symbol</div><div>$ per point</div><div></div></div>
+   <div id="ptRows"></div>
+  </div>
+  <div class="evadd" style="margin-bottom:6px">
+   <input id="ptSym" placeholder="Symbol (e.g. MNQ)" style="max-width:160px">
+   <input id="ptVal" type="number" step="any" min="0" placeholder="$ per point" style="max-width:160px">
+   <button class="ghost btn-xs" id="ptAdd">Set</button>
+  </div>
+
   <div class="section">Per-symbol rates</div>
   <div class="card" style="overflow:hidden;margin-bottom:12px">
    <div class="commhead"><div>Symbol</div><div>Round-turn / contract</div><div></div></div>
@@ -536,7 +552,7 @@ const STARTER_CONDITIONS=[
  'Wide overnight range','Tight overnight range','Above prior day high','Below prior day low',
  'High volatility','Low volume','News driven','Pre-holiday session'
 ];
-let S={trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},tagCats:[],conditions:STARTER_CONDITIONS.slice(),dayConds:{},dayShots:{},gh:{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null}}, modalId=null;
+let S={trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},ptVals:{},tagCats:[],conditions:STARTER_CONDITIONS.slice(),dayConds:{},dayShots:{},gh:{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null}}, modalId=null;
 let cursors={daily:new Date(),weekly:new Date(),monthly:new Date(),calendar:new Date()};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -669,16 +685,28 @@ async function backupNow(){
  a.href=url; a.download=`blotter-backup-${key(new Date())}.json`;
  document.body.appendChild(a); a.click(); a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
- S.lastBackup=new Date().toISOString(); save(); showLastBackup();
+ S.lastBackup=new Date().toISOString(); S.lastFullExport=S.lastBackup; save(); showLastBackup();
  $('backupStatusText').innerHTML=`<span class="ok">✓ Downloaded ${fmtMB(blob.size)}, images included.</span> This single file restores everything on its own.`;
 }
 function showLastBackup(){
- let el=$('lastBackup'); if(!el) return;
- if(!S.lastBackup){ el.innerHTML='<span style="color:var(--amber)">No backup taken yet.</span>'; return; }
- let d=new Date(S.lastBackup);
- let days=Math.floor((Date.now()-d.getTime())/86400000);
- let warn=days>=5?'color:var(--red)':days>=3?'color:var(--amber)':'color:var(--faint)';
- el.innerHTML=`<span style="${warn}">Last backup: ${d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})}${days>0?` — ${days} day${days==1?'':'s'} ago`:' — today'}</span>`;
+ let el=$('lastBackup');
+ if(el){
+  if(!S.lastBackup) el.innerHTML='<span style="color:var(--amber)">No backup taken yet.</span>';
+  else{
+   let d=new Date(S.lastBackup), days=Math.floor((Date.now()-d.getTime())/86400000);
+   let warn=days>=5?'color:var(--red)':days>=3?'color:var(--amber)':'color:var(--faint)';
+   el.innerHTML=`<span style="${warn}">Last backup (GitHub or file): ${d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})}${days>0?` — ${days} day${days==1?'':'s'} ago`:' — today'}</span>`;
+  }
+ }
+ let fe=$('lastFull');
+ if(fe){
+  if(!S.lastFullExport) fe.innerHTML='<span style="color:var(--amber)">Self-contained download: never — this is the copy that survives Safari clearing site data.</span>';
+  else{
+   let d=new Date(S.lastFullExport), days=Math.floor((Date.now()-d.getTime())/86400000);
+   let warn=days>=30?'color:var(--amber)':'color:var(--faint)';
+   fe.innerHTML=`<span style="${warn}">Self-contained download: ${d.toLocaleDateString(undefined,{dateStyle:'medium'})}${days>0?` — ${days} day${days==1?'':'s'} ago`:' — today'}</span>`;
+  }
+ }
 }
 async function restoreFrom(file){
  let txt=await file.text();
@@ -698,10 +726,10 @@ async function restoreFrom(file){
  let inlineImgs=parsed.images&&typeof parsed.images==='object'?parsed.images:null;
  let keepToken=(S.gh&&S.gh.token)||'';
  if(!confirm(`Restore this backup?\n\n${n} trades, ${bt} backtest${bt==1?'':'s'}${inlineImgs?`, ${Object.keys(inlineImgs).length} images`:''}\n\nThis REPLACES everything currently in the journal.`)) return;
- S=Object.assign({trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},tagCats:[],dayShots:{},conditions:STARTER_CONDITIONS.slice(),dayConds:{}},incoming);
+ S=Object.assign({trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},ptVals:{},tagCats:[],dayShots:{},conditions:STARTER_CONDITIONS.slice(),dayConds:{}},incoming);
  S.conditions=S.conditions||STARTER_CONDITIONS.slice(); S.dayConds=S.dayConds||{};
  S.dayShots=S.dayShots||{}; S.tagCats=S.tagCats||[]; S.events=S.events||{};
- S.comm=S.comm||{default:0,bySymbol:{}};
+ S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{};
  S.templates=S.templates||{daily:[],weekly:[],monthly:[]}; S.tplDefault=S.tplDefault||{};
  S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null,pushedImgs:[]};
  if(keepToken) S.gh.token=keepToken;
@@ -966,7 +994,7 @@ function customEvents(d){ S.events=S.events||{}; return S.events[key(d)]||[]; }
 function allEvents(d){ return autoEvents(d).concat(customEvents(d).map(n=>({name:n,cls:'ev-custom',custom:true}))); }
 function addCustomEvent(d,name){
  name=(name||'').trim(); if(!name) return;
- S.events=S.events||{};S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
+ S.events=S.events||{};S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  let k=key(d); S.events[k]=S.events[k]||[];
  if(!S.events[k].includes(name)) S.events[k].push(name);
  save();
@@ -999,8 +1027,8 @@ const EVENT_SUGGESTIONS=['CPI','PPI','PCE','Jackson Hole','GDP','Retail Sales','
 // the rate instantly reflows every stat, chart and calendar cell.
 const DEFAULT_COMM={MNQ:1.04,MES:1.04,MYM:1.04,M2K:1.04,MGC:1.04,MCL:1.04,NQ:2.08,ES:2.08,YM:2.08,RTY:2.08,GC:2.08,CL:2.08};
 function commRate(sym){
- S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
- let s=String(sym||'').trim().toUpperCase();
+ S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
+ let s=rootSymbol(sym);
  let v=S.comm.bySymbol?S.comm.bySymbol[s]:undefined;
  if(v!==undefined&&v!==null&&v!=='') return +v||0;
  return +S.comm.default||0;
@@ -1013,7 +1041,7 @@ function totalComm(list){ return (list||[]).reduce((a,t)=>a+commFor(t),0); }
 
 // ---- settings: commissions ----
 function renderComm(){
- S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
+ S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  $('commDefault').value=S.comm.default||'';
  let rows=Object.entries(S.comm.bySymbol||{}).sort((a,b)=>a[0].localeCompare(b[0]));
  $('commRows').innerHTML = rows.length
@@ -1039,19 +1067,19 @@ function renderComm(){
  ];
  $('commImpact').innerHTML=cards.map(x=>`<div class="card stat"><div class="lbl">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');
 }
-$('commDefault').oninput=e=>{ S.comm=S.comm||{default:0,bySymbol:{}}; S.comm.default=+e.target.value||0; save(); renderComm(); renderAll(); };
+$('commDefault').oninput=e=>{ S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{}; S.comm.default=+e.target.value||0; save(); renderComm(); renderAll(); };
 $('commAdd').onclick=()=>{
  let s=$('commSym').value.trim().toUpperCase(), v=$('commVal').value;
  if(!s){ toast('Enter a symbol'); return; }
  if(v===''){ toast('Enter a round-turn amount'); return; }
- S.comm=S.comm||{default:0,bySymbol:{}}; S.comm.bySymbol=S.comm.bySymbol||{};
+ S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{}; S.comm.bySymbol=S.comm.bySymbol||{};
  S.comm.bySymbol[s]=+v||0;
  $('commSym').value=''; $('commVal').value='';
  save(); renderComm(); renderAll(); toast(`${s} set to $${(+v).toFixed(2)} round-turn`);
 };
 $('commPreset').onclick=()=>{
  if(!confirm('Load typical all-in round-turn rates for common futures?\n\nThese are ballpark figures — check them against your own broker statement and edit as needed.')) return;
- S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
+ S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
  S.comm.bySymbol=Object.assign({},S.comm.bySymbol,DEFAULT_COMM);
  save(); renderComm(); renderAll(); toast('Preset rates loaded — verify against your broker');
 };
@@ -1183,6 +1211,39 @@ $('shrinkBtn').onclick=async()=>{
  toast(`Saved ${fmtMB(before-after)}`);
 };
 
+
+// ---- settings: point values ----
+function renderPtVals(){
+ if(!$('ptRows')) return;
+ // show every root symbol actually present in the journal, plus any overrides
+ let used=new Set((S.trades||[]).map(t=>rootSymbol(t.symbol)));
+ Object.values(S.backtests||{}).forEach(b=>(b.trades||[]).forEach(t=>used.add(rootSymbol(t.symbol))));
+ Object.keys(ptValTable()).forEach(k=>used.add(k));
+ let rows=[...used].filter(Boolean).sort();
+ if(!rows.length){ $('ptRows').innerHTML='<div class="empty" style="padding:24px">No symbols yet.</div>'; return; }
+ $('ptRows').innerHTML=rows.map(r=>{
+  let over=ptValTable()[r];
+  let v=btPtVal(r);
+  let known=ptValKnown(r);
+  let tag = over!==undefined&&over!==''? '<span style="color:var(--accent);font-size:10px"> your value</span>'
+          : known ? '<span style="color:var(--faint);font-size:10px"> default</span>'
+          : '<span style="color:var(--red);font-size:10px"> unknown — guessing $1</span>';
+  return `<div class="commrow"><div class="sym">${esc(r)}${tag}</div><div class="val">$${v}</div>`
+   + (over!==undefined&&over!==''?`<button data-ptrm="${esc(r)}">✕</button>`:'<div></div>')+`</div>`;
+ }).join('');
+ $('ptRows').querySelectorAll('[data-ptrm]').forEach(b=>b.onclick=()=>{
+  delete S.ptVals[b.dataset.ptrm]; save(); renderPtVals(); renderAll(); toast('Reset to default');
+ });
+}
+$('ptAdd').onclick=()=>{
+ let s=rootSymbol($('ptSym').value), v=$('ptVal').value;
+ if(!s){ toast('Enter a symbol'); return; }
+ if(v===''){ toast('Enter a $ per point value'); return; }
+ ptValTable()[s]=+v||0;
+ $('ptSym').value=''; $('ptVal').value='';
+ save(); renderPtVals(); renderAll(); toast(`${s} set to $${(+v)}/point`);
+};
+
 function renderCats(){
  let cats=tagCats();
  $('catList').innerHTML = cats.length ? cats.map(cat=>`
@@ -1275,13 +1336,19 @@ function renderCondStats(l){
 function renderMissed(){
  let t=current(), el=$('missedLine'); if(!el) return;
  if(!t){ el.innerHTML=''; return; }
+ let root=rootSymbol(t.symbol), pv=btPtVal(t.symbol);
+ let warn = ptValKnown(t.symbol) ? '' :
+   ` <span style="color:var(--red)">— no point value known for ${esc(root)}, assuming $1. Set it in Settings.</span>`;
  let lot=leftOnTable(t);
- if(!lot){ el.innerHTML='<span style="color:var(--faint)">Fill either field to see what exiting early cost you.</span>'; return; }
- let pts=missedPoints(t, t.bestPrice!=null&&t.bestPrice!==''?+t.bestPrice:+t.plannedTarget);
+ if(!lot){ el.innerHTML=`<span style="color:var(--faint)">Fill either field to see what exiting early cost you. ${esc(root)} = $${pv}/point.</span>${warn}`; return; }
+ let ref = t.bestPrice!=null&&t.bestPrice!=='' ? +t.bestPrice : +t.plannedTarget;
+ let pts=missedPoints(t,ref);
+ let qty=Math.abs(+t.qty)||1;
  if(lot.raw<=0){
-  el.innerHTML=`<span class="ok">You held past your ${esc(lot.basis)} — nothing left behind.</span>`;
+  el.innerHTML=`<span class="ok">You held past your ${esc(lot.basis)} — nothing left behind.</span>${warn}`;
  } else {
-  el.innerHTML=`<span style="color:var(--amber)">Left on the table: <b>${money(lot.amount)}</b> (${pts.toFixed(2)} pts vs ${esc(lot.basis)})</span>`;
+  el.innerHTML=`<span style="color:var(--amber)">Left on the table: <b>${money(lot.amount)}</b></span>`
+   +` <span style="color:var(--faint)">= ${pts.toFixed(2)} pts × $${pv}/pt × ${qty} contract${qty==1?'':'s'} (vs ${esc(lot.basis)})</span>${warn}`;
  }
 }
 function renderTagStats(l){
@@ -1593,11 +1660,17 @@ async function renderFs(){
 function backupHealth(){
  let el=$('sync'); if(!el) return;
  let last=S.lastBackup?new Date(S.lastBackup).getTime():0;
+ let full=S.lastFullExport?new Date(S.lastFullExport).getTime():0;
  if(!last){ el.innerHTML='<span style="color:var(--amber)">never backed up</span>'; return; }
  let days=Math.floor((Date.now()-last)/86400000);
- if(days>=7) el.innerHTML=`<span style="color:var(--red)">⚠ backup ${days}d old</span>`;
- else if(days>=3) el.innerHTML=`<span style="color:var(--amber)">backup ${days}d old</span>`;
- else el.innerHTML='<span style="color:var(--faint)">backed up</span>';
+ let line = days>=7 ? `<span style="color:var(--red)">backup ${days}d old</span>`
+          : days>=3 ? `<span style="color:var(--amber)">backup ${days}d old</span>`
+          : '<span style="color:var(--faint)">backed up</span>';
+ // a GitHub push alone will not save you if this browser is wiped
+ let fullDays=full?Math.floor((Date.now()-full)/86400000):null;
+ if(fullDays===null) line+='<br><span style="color:var(--amber)">no offline copy</span>';
+ else if(fullDays>=30) line+=`<br><span style="color:var(--amber)">offline copy ${fullDays}d old</span>`;
+ el.innerHTML=line;
 }
 // try one last push when the tab is closing, if anything changed since the last one
 window.addEventListener('beforeunload',()=>{
@@ -1698,7 +1771,7 @@ function leftOnTable(t){
  return {amount:Math.max(0,v), raw:v, basis: byBest!=null?'best price':'target'};
 }
 
-function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest();if(v=='settings'){renderComm();renderCats();renderGh();renderFs();renderCondManage();renderStorage();}}
+function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest();if(v=='settings'){renderComm();renderCats();renderGh();renderFs();renderCondManage();renderStorage();renderPtVals();}}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>navigate(b.dataset.view));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('menu').onclick=()=>$('rail').classList.toggle('open');
 $('browse').onclick=()=>$('file').click();$('file').onchange=e=>e.target.files[0]&&importFile(e.target.files[0]);['dragenter','dragover'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(x=>$('drop').addEventListener(x,e=>{e.preventDefault();$('drop').classList.remove('drag')}));$('drop').ondrop=e=>e.dataTransfer.files[0]&&importFile(e.dataTransfer.files[0]);
 function curve(svgId,totalId,firstId,lastId){let list=[...S.trades].sort((a,b)=>new Date(a.dateISO||0)-new Date(b.dateISO||0));if(!list.length){$(totalId).textContent='$0';return}let c=0,p=list.map(t=>c+=P(t)),min=Math.min(0,...p),max=Math.max(0,...p),range=max-min||1,w=600,h=84,pad=4,sy=v=>h-pad-(v-min)/range*(h-pad*2),dx=p.length>1?(w-pad*2)/(p.length-1):0,d=p.map((v,i)=>(i?'L':'M')+(pad+i*dx).toFixed(1)+','+sy(v).toFixed(1)).join(' '),z=sy(0),color=c>=0?'#3ECF8E':'#F0554F';$(totalId).textContent=short(c);$(totalId).className='bigval '+(c>=0?'pos':'neg');$(svgId).innerHTML=`<line x1="4" y1="${z}" x2="596" y2="${z}" stroke="#1F262D" stroke-dasharray="3,3"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/>`;let a=new Date(list[0].dateISO),b=new Date(list.at(-1).dateISO);$(firstId).textContent=a.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});$(lastId).textContent=b.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}
@@ -2092,9 +2165,35 @@ function renderSetupStats(l){
  }).join('');
 }
 // ===================== BACKTEST =====================
-const PTVAL={MNQ:2,NQ:20,MES:5,ES:50,MGC:10,GC:100,MCL:100,CL:1000,M2K:5,RTY:50,MYM:0.5,YM:5,MBT:0.1,BTC:5};
+const PTVAL_DEFAULT={MNQ:2,NQ:20,MES:5,ES:50,MGC:10,GC:100,MCL:100,CL:1000,M2K:5,RTY:50,MYM:0.5,YM:5,MBT:0.1,BTC:5,SI:5000,HG:25000,NG:10000,ZB:1000,ZN:1000};
+const KNOWN_ROOTS=['MNQ','MES','MYM','M2K','MGC','MCL','MBT','NQ','ES','YM','RTY','GC','CL','SI','HG','NG','ZB','ZN','BTC'];
+// Broker exports carry the contract month: MNQZ5, MNQH6, MNQ1!. Strip it so
+// the point value and commission tables match on the root symbol.
+function rootSymbol(sym){
+ let s=String(sym||'').trim().toUpperCase().split(':').pop().replace(/[!]+$/,'');
+ if(KNOWN_ROOTS.includes(s)) return s;
+ for(const r of KNOWN_ROOTS.slice().sort((a,b)=>b.length-a.length)){
+  if(s.startsWith(r)){
+   let rest=s.slice(r.length);
+   if(rest===''||/^[FGHJKMNQUVXZ]?\d{0,2}$/.test(rest)) return r;
+  }
+ }
+ let m=s.match(/^([A-Z0-9]{1,4}?)[FGHJKMNQUVXZ]\d{1,2}$/); if(m) return m[1];
+ m=s.match(/^([A-Z]{1,4})\d{1,2}$/); if(m) return m[1];
+ return s;
+}
+function ptValTable(){ S.ptVals=S.ptVals||{}; return S.ptVals; }
+function btPtVal(sym){
+ let r=rootSymbol(sym);
+ let over=ptValTable()[r];
+ if(over!==undefined&&over!==null&&over!=='') return +over||0;
+ return PTVAL_DEFAULT[r]||1;
+}
+function ptValKnown(sym){
+ let r=rootSymbol(sym);
+ return ptValTable()[r]!==undefined || PTVAL_DEFAULT[r]!==undefined;
+}
 let btActiveId=null, btCurveMode='R', btTab='dir';
-function btPtVal(sym){return PTVAL[String(sym||'').trim().toUpperCase()]||1}
 function btCalc(t){
  let risk=Math.abs(t.entry-t.stop), reward=t.direction==='Short'?(t.entry-t.exit):(t.exit-t.entry);
  let r=risk>0?reward/risk:0, pv=btPtVal(t.symbol);
@@ -2311,7 +2410,7 @@ function btClipToFields(hits){
 
  // otherwise derive from levels + tick size
  if(entry!=null){
-  let tick=TICK[(out.symbol||'').toUpperCase()]??null;
+  let tick=TICK[rootSymbol(out.symbol)]??null;
   let isShort=out.direction==='Short';
   if(out.stop==null && hits.stopLevel!=null && tick!=null){
    out.stop = isShort ? entry + hits.stopLevel*tick : entry - hits.stopLevel*tick;
@@ -2583,7 +2682,7 @@ function renderBacktest(){
  if(btActiveId) renderBtStats();
 }
 
-function renderAll(){ showLastBackup(); backupHealth(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest();if($('settings').classList.contains('active')){renderComm();renderCats();renderGh();renderFs();renderCondManage();renderStorage();}}
+function renderAll(){ showLastBackup(); backupHealth(); $('tradeCount').textContent=`${S.trades.length} trade${S.trades.length==1?'':'s'} logged`;renderTrades();if($('calendar').classList.contains('active'))renderCalendar();if($('daily').classList.contains('active'))renderDaily();if($('weekly').classList.contains('active'))renderWeekly();if($('monthly').classList.contains('active'))renderMonthly();if($('stats').classList.contains('active'))renderStats();if($('backtest').classList.contains('active'))renderBacktest();if($('settings').classList.contains('active')){renderComm();renderCats();renderGh();renderFs();renderCondManage();renderStorage();renderPtVals();}}
 (async function boot(){
  let loaded=null;
  try{ loaded=await idbGet(); }catch(err){}
@@ -2597,7 +2696,7 @@ function renderAll(){ showLastBackup(); backupHealth(); $('tradeCount').textCont
  S.templates=S.templates||{daily:[],weekly:[],monthly:[]};
  S.tplDefault=S.tplDefault||{};
  S.events=S.events||{};
- S.comm=S.comm||{default:0,bySymbol:{}};
+ S.comm=S.comm||{default:0,bySymbol:{}};S.ptVals=S.ptVals||{};
  S.tagCats=S.tagCats||[];
  S.dayShots=S.dayShots||{};
  S.conditions=S.conditions||STARTER_CONDITIONS.slice();
