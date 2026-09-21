@@ -296,6 +296,11 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
   <div class="section">Performance by entry emotion</div>
   <div class="tablewrap card"><table class="statstable"><thead><tr><th>Emotion at entry</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Net P/L</th><th>Avg P/L</th></tr></thead><tbody id="entryEmoStats"></tbody></table></div>
 
+  <div class="section">Money left on the table</div>
+  <div class="hint">For trades where you recorded a planned target or the best price reached. Grouped by how you felt at the exit — this is what cutting winners short actually costs.</div>
+  <div class="statgrid" id="missedCards" style="margin-bottom:12px"></div>
+  <div class="tablewrap card"><table class="statstable"><thead><tr><th>Exit emotion</th><th>Trades</th><th>Left on table</th><th>Avg / trade</th><th>Actual P/L</th><th>Could have been</th></tr></thead><tbody id="missedStats"></tbody></table></div>
+
   <div class="section">Performance by exit emotion</div>
   <div class="hint">Wins and losses are split out, so you can see things like cutting a winner short out of fear versus holding a loser too long.</div>
   <div class="tablewrap card"><table class="statstable"><thead><tr><th>Emotion at exit</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Net P/L</th><th>Avg win</th><th>Avg loss</th></tr></thead><tbody id="exitEmoStats"></tbody></table></div>
@@ -460,6 +465,7 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    </div>
    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
     <button class="ghost btn-xs" id="ghTest">Test connection</button>
+    <button class="ghost btn-xs" id="ghFetch">Fetch images from GitHub</button>
     <button class="btn btn-xs" id="ghPush">Back up to GitHub now</button>
     <label class="tplauto"><input type="checkbox" id="ghAuto"> auto-backup after changes (max once every 10 min)</label>
    </div>
@@ -499,6 +505,11 @@ textarea{width:100%;min-height:95px;background:var(--bg);border:1px solid var(--
    <div class="facts" id="facts"></div>
    <div class="field"><label>Setup / playbook</label><select id="setup"></select></div>
    <div class="two" id="tagfields"></div>
+   <div class="two">
+    <div class="field"><label>Planned target price</label><input id="fTarget" type="number" step="any" placeholder="where you meant to exit"></div>
+    <div class="field"><label>Best price reached <span style="color:var(--faint)">(from the chart)</span></label><input id="fBest" type="number" step="any" placeholder="how far it actually ran"></div>
+   </div>
+   <div class="hint" id="missedLine" style="margin:-6px 0 0"></div>
    <div class="two"><div class="field"><label>Emotion at entry</label><div class="emos" id="entryemos"></div></div><div class="field"><label>Emotion at exit</label><div class="emos" id="exitemos"></div></div></div>
    <div class="field"><label>Entry notes</label><textarea id="entrynote" placeholder="What did you see? Why did you take it?"></textarea></div>
    <div class="field"><label>Exit notes</label><textarea id="exitnote" placeholder="Why did you exit? Target, stop, fear, early exit, etc."></textarea></div>
@@ -536,21 +547,75 @@ const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const monthKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 // ---- persistence: IndexedDB primary (large quota), localStorage fallback ----
-const DB_NAME='blotter-store', DB_STORE='kv', DB_KEY='state';
+const DB_NAME='blotter-store', DB_STORE='kv', DB_KEY='state', IMG_STORE='imgs';
 function idbOpen(){
  return new Promise((res,rej)=>{
-  let r=indexedDB.open(DB_NAME,1);
-  r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains(DB_STORE)) r.result.createObjectStore(DB_STORE); };
+  let r=indexedDB.open(DB_NAME,2);
+  r.onupgradeneeded=()=>{
+   let db=r.result;
+   if(!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+   if(!db.objectStoreNames.contains(IMG_STORE)) db.createObjectStore(IMG_STORE);
+  };
   r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
  });
+}
+// ---- image store: images live here, NOT inside the journal state ----
+// The journal keeps only short ids, so it stays a few hundred KB no matter
+// how many screenshots pile up. Backups push each image once, separately.
+function imgPut(id,dataUrl){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(IMG_STORE,'readwrite'); tx.objectStore(IMG_STORE).put(dataUrl,id); tx.oncomplete=()=>res(id); tx.onerror=()=>rej(tx.error); })); }
+function imgGet(id){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(IMG_STORE,'readonly'); let q=tx.objectStore(IMG_STORE).get(id); q.onsuccess=()=>res(q.result||null); q.onerror=()=>rej(q.error); })); }
+function imgDel(id){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(IMG_STORE,'readwrite'); tx.objectStore(IMG_STORE).delete(id); tx.oncomplete=()=>res(true); tx.onerror=()=>rej(tx.error); })); }
+function imgKeys(){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(IMG_STORE,'readonly'); let q=tx.objectStore(IMG_STORE).getAllKeys(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error); })); }
+function imgSizes(){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(IMG_STORE,'readonly'); let q=tx.objectStore(IMG_STORE).getAll(); q.onsuccess=()=>res((q.result||[]).reduce((a,s)=>a+(s?s.length:0),0)); q.onerror=()=>rej(q.error); })); }
+const imgCache=new Map();
+async function imgLoad(id){
+ if(imgCache.has(id)) return imgCache.get(id);
+ let d=await imgGet(id);
+ if(d) imgCache.set(id,d);
+ return d;
+}
+function newImgId(){ return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+// every image id referenced anywhere in the journal
+function referencedImgIds(){
+ let s=new Set();
+ (S.trades||[]).forEach(t=>(t.screenshots||[]).forEach(x=>{ if(typeof x==='string'&&!x.startsWith('data:')) s.add(x); }));
+ Object.values(S.dayShots||{}).forEach(a=>a.forEach(x=>{ if(typeof x==='string'&&!x.startsWith('data:')) s.add(x); }));
+ return s;
+}
+// move any inline base64 out of the journal and into the image store
+async function migrateInlineImages(){
+ let moved=0;
+ for(let t of (S.trades||[])){
+  if(!t.screenshots||!t.screenshots.length) continue;
+  for(let i=0;i<t.screenshots.length;i++){
+   let v=t.screenshots[i];
+   if(typeof v==='string'&&v.startsWith('data:')){
+    let id=newImgId(); await imgPut(id,v); t.screenshots[i]=id; imgCache.set(id,v); moved++;
+   }
+  }
+ }
+ for(let k of Object.keys(S.dayShots||{})){
+  let a=S.dayShots[k]||[];
+  for(let i=0;i<a.length;i++){
+   let v=a[i];
+   if(typeof v==='string'&&v.startsWith('data:')){
+    let id=newImgId(); await imgPut(id,v); a[i]=id; imgCache.set(id,v); moved++;
+   }
+  }
+ }
+ return moved;
 }
 function idbSet(v){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).put(v,DB_KEY); tx.oncomplete=()=>res(true); tx.onerror=()=>rej(tx.error); })); }
 function idbGet(){ return idbOpen().then(db=>new Promise((res,rej)=>{ let tx=db.transaction(DB_STORE,'readonly'); let q=tx.objectStore(DB_STORE).get(DB_KEY); q.onsuccess=()=>res(q.result||null); q.onerror=()=>rej(q.error); })); }
 
-let saveSeq=0, saveFailed=false;
+let saveFailed=false, saveTimer=null;
 function save(){
- // never let a storage or backup problem stop the UI from updating
- let mySeq=++saveSeq;
+ // coalesce rapid saves (typing) into one write a moment later
+ clearTimeout(saveTimer);
+ saveTimer=setTimeout(flushSave,250);
+ try{ if(typeof backupHealth==='function')backupHealth(); }catch(err){}
+}
+function flushSave(){
  idbSet(S).then(()=>{
   if(saveFailed){ saveFailed=false; storageMsg(''); }
  }).catch(err=>{
@@ -563,7 +628,6 @@ function save(){
   light.trades=(S.trades||[]).map(t=>Object.assign({},t,{screenshots:[]}));
   localStorage.setItem(KEY,JSON.stringify(light));
  }catch(err){ /* quota — IndexedDB is the real store, so this is fine */ }
- try{ if(typeof backupHealth==='function')backupHealth(); }catch(err){}
  try{ if(typeof ghMaybeAuto==='function')ghMaybeAuto(); }catch(err){}
  try{ if(typeof fsMaybeAuto==='function')fsMaybeAuto(); }catch(err){}
 }
@@ -587,21 +651,26 @@ function parseTrad(txt){let r=parseCSV(txt);if(r.length<2)return[];let h=r[0], c
 function fp(t){return [t.symbol,t.boughtTs,t.soldTs,t.buyPrice,t.sellPrice,t.pnl].join('|')}
 async function importFile(file){let txt=await file.text(),arr=parseTrad(txt);if(!arr.length){$('status').classList.add('show');$('statusText').textContent='No trades found. Check that this is a Tradovate position history CSV.';return}let seen=new Set(S.trades.map(t=>t.fingerprint||fp(t))),added=0;arr.forEach(p=>{let f=fp(p);if(seen.has(f))return;p.fingerprint=f;S.trades.push(p);seen.add(f);added++});S.trades.sort((a,b)=>(new Date(b.dateISO||0))-(new Date(a.dateISO||0)));save();$('status').classList.add('show');$('statusText').innerHTML=`<span class="ok">✓ Imported ${added} new trade${added==1?'':'s'}</span>${arr.length-added?` · ${arr.length-added} already logged`:''}`;toast(`${added} trade${added==1?'':'s'} imported`);renderAll()}
 // ===================== BACKUP / RESTORE =====================
-function backupNow(){
- // never write the GitHub token into a backup file
- let safe=Object.assign({},S);
- if(safe.gh) safe.gh=Object.assign({},safe.gh,{token:''});
- let payload={_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:safe};
- let blob=new Blob([JSON.stringify(payload,null,1)],{type:'application/json'});
+async function backupNow(){
+ $('backupStatus').classList.add('show');
+ $('backupStatusText').textContent='Building a self-contained backup…';
+ let safe=JSON.parse(JSON.stringify(S));
+ if(safe.gh) safe.gh.token='';
+ // inline every referenced image so this one file restores on its own
+ let blobs={};
+ for(let id of referencedImgIds()){
+  let d=await imgLoad(id);
+  if(d) blobs[id]=d;
+ }
+ let payload={_app:'blotter-trade-journal',_version:3,_exportedAt:new Date().toISOString(),data:safe,images:blobs};
+ let blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
  let url=URL.createObjectURL(blob);
  let a=document.createElement('a');
- a.href=url;
- a.download=`blotter-backup-${key(new Date())}.json`;
+ a.href=url; a.download=`blotter-backup-${key(new Date())}.json`;
  document.body.appendChild(a); a.click(); a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
  S.lastBackup=new Date().toISOString(); save(); showLastBackup();
- $('backupStatus').classList.add('show');
- $('backupStatusText').innerHTML='<span class="ok">✓ Backup downloaded.</span> Keep it somewhere safe — iCloud Drive, Dropbox, anywhere off this browser.';
+ $('backupStatusText').innerHTML=`<span class="ok">✓ Downloaded ${fmtMB(blob.size)}, images included.</span> This single file restores everything on its own.`;
 }
 function showLastBackup(){
  let el=$('lastBackup'); if(!el) return;
@@ -626,22 +695,62 @@ async function restoreFrom(file){
   return;
  }
  let n=incoming.trades.length, bt=Object.keys(incoming.backtests||{}).length;
+ let inlineImgs=parsed.images&&typeof parsed.images==='object'?parsed.images:null;
  let keepToken=(S.gh&&S.gh.token)||'';
- if(!confirm(`Restore this backup?\n\n${n} trades, ${bt} backtest${bt==1?'':'s'}\n\nThis REPLACES everything currently in the journal. Your current data will be gone.`)) return;
+ if(!confirm(`Restore this backup?\n\n${n} trades, ${bt} backtest${bt==1?'':'s'}${inlineImgs?`, ${Object.keys(inlineImgs).length} images`:''}\n\nThis REPLACES everything currently in the journal.`)) return;
  S=Object.assign({trades:[],daily:{},weekly:{},monthly:{},backtests:{},setups:[],templates:{daily:[],weekly:[],monthly:[]},tplDefault:{},events:{},comm:{default:0,bySymbol:{}},tagCats:[],dayShots:{},conditions:STARTER_CONDITIONS.slice(),dayConds:{}},incoming);
  S.conditions=S.conditions||STARTER_CONDITIONS.slice(); S.dayConds=S.dayConds||{};
- S.dayShots=S.dayShots||{};
- S.tagCats=S.tagCats||[];
- S.events=S.events||{};S.comm=S.comm||{default:0,bySymbol:{}};S.tagCats=S.tagCats||[];S.dayShots=S.dayShots||{};S.conditions=S.conditions||STARTER_CONDITIONS.slice();S.dayConds=S.dayConds||{};S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};syncTagOptions();
+ S.dayShots=S.dayShots||{}; S.tagCats=S.tagCats||[]; S.events=S.events||{};
+ S.comm=S.comm||{default:0,bySymbol:{}};
  S.templates=S.templates||{daily:[],weekly:[],monthly:[]}; S.tplDefault=S.tplDefault||{};
- if(keepToken){ S.gh=S.gh||{}; S.gh.token=keepToken; }
+ S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null,pushedImgs:[]};
+ if(keepToken) S.gh.token=keepToken;
  S.trades=(S.trades||[]).map(t=>{t.side=direction(t);return t});
- syncSetups(); save();
+
+ // put any inlined images back into the image store
+ if(inlineImgs){
+  for(let [id,d] of Object.entries(inlineImgs)){ await imgPut(id,d); imgCache.set(id,d); }
+ }
+ await migrateInlineImages();   // handles older backups that embedded base64 in-place
+ syncTagOptions(); syncSetups(); save();
+
+ // anything still missing can be pulled from the repo
+ let missing=[];
+ for(let id of referencedImgIds()){ if(!(await imgGet(id))) missing.push(id); }
  $('backupStatus').classList.add('show');
- $('backupStatusText').innerHTML=`<span class="ok">✓ Restored ${n} trades.</span>`;
+ $('backupStatusText').innerHTML=`<span class="ok">✓ Restored ${n} trades.</span>`
+  + (missing.length?` ${missing.length} image${missing.length==1?'':'s'} are not in this file — use <b>Fetch images from GitHub</b> in Settings if they were backed up there.`:'');
  showLastBackup();
  wireTemplates('daily','d','dnote');wireTemplates('weekly','w','wnote');wireTemplates('monthly','m','mnote');
  renderAll(); toast('Backup restored');
+}
+// pull any referenced-but-missing images back down from the repo
+async function ghFetchImages(){
+ let g=ghCfg();
+ if(!g.repo||!g.token){ ghMsg('Set the repository and token first.','err'); return; }
+ let path=(g.path||'blotter-backup.json').replace(/^\/+/,'');
+ let imgDir=(path.includes('/')?path.slice(0,path.lastIndexOf('/')+1):'')+'images/';
+ let missing=[];
+ for(let id of referencedImgIds()){ if(!(await imgGet(id))) missing.push(id); }
+ if(!missing.length){ ghMsg('Every image is already stored locally.','ok'); return; }
+ let got=0,fail=0;
+ for(let id of missing){
+  let ok=false;
+  for(let ext of ['jpg','png']){
+   try{
+    let r=await fetch(`https://api.github.com/repos/${g.repo}/contents/${(imgDir+id+'.'+ext).split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(g.branch||'main')}`,{headers:ghHeaders(g.token)});
+    if(!r.ok) continue;
+    let j=await r.json();
+    let d=`data:image/${ext==='jpg'?'jpeg':'png'};base64,`+(j.content||'').replace(/\n/g,'');
+    await imgPut(id,d); imgCache.set(id,d); got++; ok=true; break;
+   }catch(err){}
+  }
+  if(!ok) fail++;
+  ghMsg(`Fetching images… ${got+fail} / ${missing.length}`);
+  await new Promise(r=>setTimeout(r,0));
+ }
+ save(); renderAll();
+ ghMsg(`Recovered ${got} image${got==1?'':'s'}${fail?`, ${fail} not found in the repo`:''}.`, fail?'warn':'ok');
 }
 $('backupBtn').onclick=backupNow;
 // Ask the browser to mark this site's storage as persistent. Granted storage is
@@ -1032,47 +1141,46 @@ $('condReset').onclick=()=>{
 
 
 // ---- settings: storage size + one-time shrink of existing images ----
-function renderStorage(){
+async function renderStorage(){
  if(!$('storeStats')) return;
- let total=storageBytes(), imgs=imageBytes();
- let count=(S.trades||[]).reduce((a,t)=>a+((t.screenshots||[]).length),0)
-   + Object.values(S.dayShots||{}).reduce((a,x)=>a+x.length,0);
+ let journal=storageBytes();           // text only now
+ let imgs=await imageBytes();          // separate store
+ let count=referencedImgIds().size;
  let cards=[
-  ['Journal size',fmtMB(total), total>20*1048576?'neg':total>10*1048576?'':'pos'],
-  ['Images',fmtMB(imgs), ''],
+  ['Journal (text)',fmtMB(journal), journal>5*1048576?'neg':'pos'],
+  ['Images (separate)',fmtMB(imgs),''],
   ['Image count',count,''],
-  ['Everything else',fmtMB(Math.max(0,total-imgs)),''],
+  ['Pushed to GitHub',((S.gh&&S.gh.pushedImgs)||[]).length+' / '+count,''],
  ];
  $('storeStats').innerHTML=cards.map(x=>`<div class="card stat"><div class="lbl">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');
 }
 $('storeRefresh').onclick=()=>{ renderStorage(); toast('Recalculated'); };
 $('shrinkBtn').onclick=async()=>{
- let before=storageBytes();
- let targets=[];
- (S.trades||[]).forEach(t=>(t.screenshots||[]).forEach((s,i)=>targets.push({kind:'trade',t,i})));
- Object.keys(S.dayShots||{}).forEach(k=>(S.dayShots[k]||[]).forEach((s,i)=>targets.push({kind:'day',k,i})));
- if(!targets.length){ $('shrinkState').innerHTML='<span style="color:var(--faint)">No images stored.</span>'; return; }
- if(!confirm(`Compress ${targets.length} image${targets.length==1?'':'s'}?\n\nThey are downscaled to 1600px and re-encoded as JPEG. Charts stay readable, but this cannot be undone — take a backup first if you are unsure.`)) return;
+ let ids=[...referencedImgIds()];
+ if(!ids.length){ $('shrinkState').innerHTML='<span style="color:var(--faint)">No images stored.</span>'; return; }
+ if(!confirm(`Compress ${ids.length} image${ids.length==1?'':'s'}?\n\nThey are downscaled to 1600px and re-encoded as JPEG. Charts stay readable, but this cannot be undone.`)) return;
  $('shrinkBtn').disabled=true;
- let done=0, skipped=0;
- for(let g of targets){
-  let src = g.kind==='trade' ? g.t.screenshots[g.i] : S.dayShots[g.k][g.i];
-  let out = await compressDataUrl(src);
-  if(out.length<src.length){
-   if(g.kind==='trade') g.t.screenshots[g.i]=out; else S.dayShots[g.k][g.i]=out;
-   done++;
-  } else skipped++;
-  if(done%5===0||done+skipped===targets.length){
-   $('shrinkState').innerHTML=`<span style="color:var(--accent)">Compressing… ${done+skipped} / ${targets.length}</span>`;
-   await new Promise(r=>setTimeout(r,0));   // let the UI paint
+ let before=await imageBytes(), done=0, skipped=0, changed=[];
+ for(let id of ids){
+  let src=await imgLoad(id);
+  if(!src){ skipped++; continue; }
+  let out=await compressDataUrl(src);
+  if(out.length<src.length){ await imgPut(id,out); imgCache.set(id,out); done++; changed.push(id); }
+  else skipped++;
+  if((done+skipped)%5===0||done+skipped===ids.length){
+   $('shrinkState').innerHTML=`<span style="color:var(--accent)">Compressing… ${done+skipped} / ${ids.length}</span>`;
+   await new Promise(r=>setTimeout(r,0));
   }
  }
- save(); renderStorage();
- let after=storageBytes();
- let saved=before-after;
- $('shrinkState').innerHTML=`<span class="ok">Done. ${fmtMB(before)} → ${fmtMB(after)}, saved ${fmtMB(saved)}${skipped?` · ${skipped} already small enough`:''}.</span> Back up now to push the smaller file.`;
+ // anything re-encoded must be re-uploaded on the next backup
+ if(changed.length&&S.gh&&S.gh.pushedImgs){
+  S.gh.pushedImgs=S.gh.pushedImgs.filter(x=>!changed.includes(x));
+ }
+ save(); await renderStorage();
+ let after=await imageBytes();
+ $('shrinkState').innerHTML=`<span class="ok">Done. ${fmtMB(before)} → ${fmtMB(after)}, saved ${fmtMB(before-after)}${skipped?` · ${skipped} already small enough`:''}.</span>`;
  $('shrinkBtn').disabled=false;
- toast(`Saved ${fmtMB(saved)}`);
+ toast(`Saved ${fmtMB(before-after)}`);
 };
 
 function renderCats(){
@@ -1163,6 +1271,19 @@ function renderCondStats(l){
  }).join('');
 }
 
+
+function renderMissed(){
+ let t=current(), el=$('missedLine'); if(!el) return;
+ if(!t){ el.innerHTML=''; return; }
+ let lot=leftOnTable(t);
+ if(!lot){ el.innerHTML='<span style="color:var(--faint)">Fill either field to see what exiting early cost you.</span>'; return; }
+ let pts=missedPoints(t, t.bestPrice!=null&&t.bestPrice!==''?+t.bestPrice:+t.plannedTarget);
+ if(lot.raw<=0){
+  el.innerHTML=`<span class="ok">You held past your ${esc(lot.basis)} — nothing left behind.</span>`;
+ } else {
+  el.innerHTML=`<span style="color:var(--amber)">Left on the table: <b>${money(lot.amount)}</b> (${pts.toFixed(2)} pts vs ${esc(lot.basis)})</span>`;
+ }
+}
 function renderTagStats(l){
  let host=$('tagStats'); if(!host) return;
  let cats=tagCats();
@@ -1202,25 +1323,33 @@ function setDayShots(d,list){
  save();
 }
 async function addDayShots(files){
- let d=cursors.daily, list=dayShots(d).slice();
- let n=0;
+ let d=cursors.daily, list=dayShots(d).slice(), n=0;
  for(let f of files){
   if(!f.type||!f.type.startsWith('image/')) continue;
   let url=await fileToCompressedDataUrl(f);
-  if(url){ list.push(url); n++; }
+  if(!url) continue;
+  let id=newImgId(); await imgPut(id,url); imgCache.set(id,url);
+  list.push(id); n++;
  }
  if(n){ setDayShots(d,list); renderDayShots(); toast(`Added ${n} image${n==1?'':'s'} to this day`); }
 }
 function renderDayShots(){
  let d=cursors.daily, list=dayShots(d);
  let host=$('dayshots'); if(!host) return;
- host.innerHTML=list.map((s,i)=>`<div class="thumb"><img src="${s}" data-dopen="${i}"><button data-drm="${i}">✕</button></div>`).join('');
+ host.innerHTML=list.map((id,i)=>`<div class="thumb"><img data-id="${esc(id)}" data-dopen="${i}" alt=""><button data-drm="${i}">✕</button></div>`).join('');
  host.querySelectorAll('[data-drm]').forEach(b=>b.onclick=e=>{
   e.stopPropagation();
-  let l=dayShots(cursors.daily).slice(); l.splice(+b.dataset.drm,1);
+  let l=dayShots(cursors.daily).slice();
+  let id=l[+b.dataset.drm];
+  l.splice(+b.dataset.drm,1);
   setDayShots(cursors.daily,l); renderDayShots(); renderCalendar();
+  if(id && !referencedImgIds().has(id)){ imgCache.delete(id); imgDel(id).catch(()=>{}); }
  });
- host.querySelectorAll('img[data-dopen]').forEach(im=>im.onclick=()=>openLightbox(dayShots(cursors.daily),+im.dataset.dopen));
+ host.querySelectorAll('img[data-id]').forEach(async im=>{
+  let dd=await imgLoad(im.dataset.id);
+  if(dd) im.src=dd;
+  im.onclick=()=>openLightbox(dayShots(cursors.daily),+im.dataset.dopen);
+ });
 }
 // a day counts as journaled if it has notes, images, or any journaled trade
 function dayHasJournal(d){
@@ -1235,7 +1364,7 @@ function dayHasJournal(d){
 // ===================== GITHUB AUTO-BACKUP =====================
 // Writes the journal to a private repo via the GitHub Contents API.
 // The same path is overwritten each time; git history keeps every version.
-function ghCfg(){ S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null,sha:null}; return S.gh; }
+function ghCfg(){ S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null,pushedImgs:[]}; S.gh.pushedImgs=S.gh.pushedImgs||[]; return S.gh; }
 function ghMsg(html,kind){
  let el=$('ghState'); if(!el) return;
  let color = kind==='ok'?'var(--green)':kind==='err'?'var(--red)':kind==='warn'?'var(--amber)':'var(--faint)';
@@ -1267,43 +1396,76 @@ async function ghTest(){
   return true;
  }catch(err){ ghMsg('Network error reaching GitHub.','err'); return false; }
 }
+// PUT one file, fetching its current sha first so updates are allowed.
+async function ghPutFile(g,path,contentB64,msg){
+ let branch=g.branch||'main';
+ let sha=null;
+ let head=await fetch(`https://api.github.com/repos/${g.repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(branch)}`,{headers:ghHeaders(g.token)});
+ if(head.ok){ let hj=await head.json(); sha=hj.sha; }
+ else if(head.status!==404) throw new Error(`read ${path} -> ${head.status}`);
+ let body={message:msg,content:contentB64,branch};
+ if(sha) body.sha=sha;
+ let r=await fetch(`https://api.github.com/repos/${g.repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,{
+  method:'PUT',headers:Object.assign({'Content-Type':'application/json'},ghHeaders(g.token)),body:JSON.stringify(body)
+ });
+ if(!r.ok){ let t=await r.text(); throw new Error(`write ${path} -> ${r.status} ${t.slice(0,120)}`); }
+ return true;
+}
+// Journal text and images are pushed separately: the journal is small and
+// rewritten each time, while each image is uploaded once and never again.
 async function ghPush(silent){
  let g=ghCfg();
  if(!g.repo||!g.token){ if(!silent) ghMsg('Fill in the repository and token first.','err'); return false; }
+ g.pushedImgs=g.pushedImgs||[];
  let path=(g.path||'blotter-backup.json').replace(/^\/+/,'');
- let branch=g.branch||'main';
+ let imgDir=(path.includes('/')?path.slice(0,path.lastIndexOf('/')+1):'')+'images/';
+
  let safe=Object.assign({},S);
  if(safe.gh) safe.gh=Object.assign({},safe.gh,{token:''});
- let payload=JSON.stringify({_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:safe},null,1);
+ let payload=JSON.stringify({_app:'blotter-trade-journal',_version:3,_imagesDir:'images/',_exportedAt:new Date().toISOString(),data:safe},null,1);
  let sizeMB=payload.length/1048576;
- if(sizeMB>25){ ghMsg(`Backup is ${sizeMB.toFixed(1)}MB — too large for the GitHub file API (limit ~25MB). Run <b>Compress existing images</b> above, then try again.`,'err'); return false; }
- if(!silent) ghMsg(`Uploading ${sizeMB.toFixed(2)}MB…`);
+ if(sizeMB>25){ ghMsg(`Journal file is ${sizeMB.toFixed(1)}MB, which is too large. Something other than images is oversized.`,'err'); return false; }
+
+ let ids=[...referencedImgIds()];
+ let pushed=new Set(g.pushedImgs);
+ let todo=ids.filter(id=>!pushed.has(id));
+
  try{
-  // need the current file's sha to update it
-  let sha=null;
-  let head=await fetch(`https://api.github.com/repos/${g.repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`,{headers:ghHeaders(g.token)});
-  if(head.ok){ let hj=await head.json(); sha=hj.sha; }
-  else if(head.status!==404){
-   if(!silent) ghMsg(`Could not read the existing file (${head.status}).`,'err');
-   return false;
+  if(!silent) ghMsg(`Uploading journal (${(payload.length/1024).toFixed(0)}KB)…`);
+  await ghPutFile(g,path,toB64(payload),`Journal backup ${new Date().toISOString()}`);
+
+  let n=0;
+  for(let id of todo){
+   let d=await imgLoad(id);
+   if(!d) continue;
+   let comma=d.indexOf(',');
+   let b64=comma>=0?d.slice(comma+1):d;
+   let ext=/^data:image\/png/i.test(d)?'png':'jpg';
+   await ghPutFile(g,`${imgDir}${id}.${ext}`,b64,`Add image ${id}`);
+   g.pushedImgs.push(id); n++;
+   if(!silent && (n%3===0||n===todo.length)){
+    ghMsg(`Uploading images… ${n} / ${todo.length}`);
+    save();
+    await new Promise(r=>setTimeout(r,0));
+   }
   }
-  let body={message:`Journal backup ${new Date().toISOString()}`,content:toB64(payload),branch};
-  if(sha) body.sha=sha;
-  let r=await fetch(`https://api.github.com/repos/${g.repo}/contents/${encodeURIComponent(path)}`,{
-   method:'PUT',headers:Object.assign({'Content-Type':'application/json'},ghHeaders(g.token)),body:JSON.stringify(body)
-  });
-  if(!r.ok){
-   let txt=await r.text();
-   if(!silent) ghMsg(`Upload failed (${r.status}). ${esc(txt.slice(0,160))}`,'err');
-   return false;
-  }
+  // forget ids for images that no longer exist in the journal
+  g.pushedImgs=g.pushedImgs.filter(id=>ids.includes(id));
+
   g.lastPush=new Date().toISOString();
   S.lastBackup=g.lastPush;
   save(); showLastBackup();
-  if(!silent) ghMsg(`Backed up ${sizeMB.toFixed(2)}MB to ${esc(g.repo)} at ${new Date().toLocaleTimeString()}.`,'ok');
-  else ghMsg(`Auto-backed up at ${new Date().toLocaleTimeString()}.`,'ok');
+  let msg=`Backed up at ${new Date().toLocaleTimeString()} — journal ${(payload.length/1024).toFixed(0)}KB`
+    + (n?`, ${n} new image${n==1?'':'s'}`:', no new images')
+    + `. ${ids.length} image${ids.length==1?'':'s'} stored in the repo.`;
+  ghMsg(msg,'ok');
+  if($('storeStats')) renderStorage();
   return true;
- }catch(err){ if(!silent) ghMsg('Network error during upload.','err'); return false; }
+ }catch(err){
+  if(!silent) ghMsg('Upload failed: '+esc(err.message||'error'),'err');
+  save();   // keep whatever images did upload
+  return false;
+ }
 }
 // auto-backup: debounced, and never more than once every 10 minutes
 let ghTimer=null;
@@ -1329,6 +1491,7 @@ $('ghBranch').oninput=e=>{ ghCfg().branch=e.target.value.trim()||'main'; save();
 $('ghPath').oninput=e=>{ ghCfg().path=e.target.value.trim()||'blotter-backup.json'; save(); };
 $('ghToken').oninput=e=>{ ghCfg().token=e.target.value.trim(); save(); };
 $('ghTest').onclick=ghTest;
+$('ghFetch').onclick=ghFetchImages;
 $('ghPush').onclick=()=>ghPush(false);
 $('ghAuto').onchange=e=>{
  let g=ghCfg();
@@ -1438,6 +1601,7 @@ function backupHealth(){
 }
 // try one last push when the tab is closing, if anything changed since the last one
 window.addEventListener('beforeunload',()=>{
+ try{ clearTimeout(saveTimer); flushSave(); }catch(err){}
  let g=(S.gh||{});
  if(!g.auto||!g.repo||!g.token) return;
  let last=g.lastPush?new Date(g.lastPush).getTime():0;
@@ -1445,7 +1609,7 @@ window.addEventListener('beforeunload',()=>{
  try{
   let safe=Object.assign({},S);
   if(safe.gh) safe.gh=Object.assign({},safe.gh,{token:''});
-  let payload=JSON.stringify({_app:'blotter-trade-journal',_version:2,_exportedAt:new Date().toISOString(),data:safe},null,1);
+  let payload=JSON.stringify({_app:'blotter-trade-journal',_version:3,_imagesDir:'images/',_exportedAt:new Date().toISOString(),data:safe},null,1);
   // best-effort: keepalive lets the request outlive the page
   fetch(`https://api.github.com/repos/${g.repo}/contents/${encodeURIComponent((g.path||'blotter-backup.json').replace(/^\/+/,''))}?ref=${encodeURIComponent(g.branch||'main')}`,
    {headers:ghHeaders(g.token),keepalive:true})
@@ -1501,13 +1665,38 @@ function fileToCompressedDataUrl(file){
 function storageBytes(){
  try{ return new Blob([JSON.stringify(S)]).size; }catch(err){ return JSON.stringify(S).length; }
 }
-function imageBytes(){
- let n=0;
- (S.trades||[]).forEach(t=>(t.screenshots||[]).forEach(s=>n+=s.length));
- Object.values(S.dayShots||{}).forEach(a=>a.forEach(s=>n+=s.length));
- return n;
-}
+async function imageBytes(){ try{ return await imgSizes(); }catch(err){ return 0; } }
 function fmtMB(b){ return (b/1048576).toFixed(2)+'MB'; }
+
+
+// ===================== MONEY LEFT ON THE TABLE =====================
+// Two optional numbers per trade:
+//   plannedTarget - the TP you intended (hypothetical: assumes price got there)
+//   bestPrice     - how far price ACTUALLY ran (factual, from the chart)
+// Both are compared against where you really got out.
+function entryPx(t){ return direction(t)==='Short' ? t.sellPrice : t.buyPrice; }
+function exitPx(t){ return direction(t)==='Short' ? t.buyPrice : t.sellPrice; }
+function ptVal(sym){ return btPtVal(sym); }
+// points left behind, measured in the trade's favourable direction
+function missedPoints(t,ref){
+ if(ref==null||ref==='') return null;
+ let ex=exitPx(t); if(ex==null) return null;
+ let d=direction(t)==='Short' ? (ex-ref) : (ref-ex);
+ return d;
+}
+function missedMoney(t,ref){
+ let p=missedPoints(t,ref);
+ if(p==null) return null;
+ return p*ptVal(t.symbol)*(Math.abs(+t.qty)||1);
+}
+// what this trade cost by exiting early — prefers the factual best price
+function leftOnTable(t){
+ let byBest = t.bestPrice!=null&&t.bestPrice!=='' ? missedMoney(t,+t.bestPrice) : null;
+ let byTgt  = t.plannedTarget!=null&&t.plannedTarget!=='' ? missedMoney(t,+t.plannedTarget) : null;
+ let v = byBest!=null?byBest:byTgt;
+ if(v==null) return null;
+ return {amount:Math.max(0,v), raw:v, basis: byBest!=null?'best price':'target'};
+}
 
 function navigate(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(v).classList.add('active');$('rail').classList.remove('open');if(v=='trades')renderTrades();if(v=='calendar')renderCalendar();if(v=='daily')renderDaily();if(v=='weekly')renderWeekly();if(v=='monthly')renderMonthly();if(v=='stats')renderStats();if(v=='backtest')renderBacktest();if(v=='settings'){renderComm();renderCats();renderGh();renderFs();renderCondManage();renderStorage();}}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>navigate(b.dataset.view));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('menu').onclick=()=>$('rail').classList.toggle('open');
@@ -1518,14 +1707,25 @@ function filtered(){let sy=$('fs').value,re=$('fr').value,se=$('fset').value;ret
 function renderTrades(){populate();curve('svg','total','first','last');let l=filtered();$('count').textContent=`${l.length} of ${S.trades.length} trades`;if(!l.length){$('rows').innerHTML=`<div class="empty">${S.trades.length?'No trades match your filters.':'No trades imported yet.'}</div>`;return}$('rows').innerHTML=l.map(t=>{let d=t.dateISO?new Date(t.dateISO):null,j=t.setup||t.entryNotes||t.exitNotes||t.emoEntry||t.emoExit;return `<div class="row" data-id="${t.id}"><div class="date">${d?d.toLocaleDateString(undefined,{month:'short',day:'2-digit'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}):'—'}</div><div><b>${esc(t.symbol)}</b></div><div class="side ${direction(t).toLowerCase()=='long'?'long':direction(t).toLowerCase()=='short'?'short':'unknown'}">${esc(direction(t))}</div><div class="setup">${esc(t.setup||'No setup logged')}</div><div class="num">${t.qty}</div><div class="num">${t.buyPrice??'—'}</div><div class="pnl ${P(t)>=0?'pos':'neg'}">${money(P(t))}</div><div class="flag">${j?'✓':''}</div><div>›</div></div>`}).join('');document.querySelectorAll('.row').forEach(r=>r.onclick=()=>openModal(r.dataset.id))}
 ['fs','fr','fset'].forEach(id=>$(id).onchange=renderTrades);
 const entryEmos=[['calm','Calm'],['confident','Confident'],['hesitant','Hesitant'],['fomo','FOMO'],['revenge','Revenge']],exitEmos=[['satisfied','Satisfied'],['relieved','Relieved'],['fearful','Fearful'],['frustrated','Frustrated'],['regret','Regret']];
-function openModal(id){let t=S.trades.find(x=>x.id==id);if(!t)return;modalId=id;let d=t.dateISO?new Date(t.dateISO):null;$('mtitle').textContent=t.symbol;$('mmeta').textContent=d?d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}):'Date unknown';$('mbadge').textContent=money(P(t));$('mbadge').className='badge '+(P(t)>=0?'pos':'neg');$('facts').innerHTML=[['Direction',direction(t)],['Qty',t.qty],['Entry',t.buyPrice??'—'],['Exit',t.sellPrice??'—'],['Entry time',entryTime(t)||'—'],['Exit time',(t.soldTs||t.boughtTs)||'—'],['Duration',t.duration||'—'],['Gross P/L',money(+t.pnl||0)],['Commission',money(-commFor(t))]].map(x=>`<div class="fact"><small>${x[0]}</small><div>${esc(x[1])}</div></div>`).join('');$('setup').innerHTML=setupOptions(t.setup||'');$('setup').value=t.setup||'';$('entrynote').value=t.entryNotes||'';$('exitnote').value=t.exitNotes||'';emoButtons('entryemos',entryEmos,t.emoEntry);emoButtons('exitemos',exitEmos,t.emoExit);renderShots(t);renderTagFields('tagfields',()=>current(),(cat,val)=>{let tt=current();if(tt){setTagValue(tt,cat.id,val);save();}});$('back').classList.add('show')}
+function openModal(id){let t=S.trades.find(x=>x.id==id);if(!t)return;modalId=id;let d=t.dateISO?new Date(t.dateISO):null;$('mtitle').textContent=t.symbol;$('mmeta').textContent=d?d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}):'Date unknown';$('mbadge').textContent=money(P(t));$('mbadge').className='badge '+(P(t)>=0?'pos':'neg');$('facts').innerHTML=[['Direction',direction(t)],['Qty',t.qty],['Entry',t.buyPrice??'—'],['Exit',t.sellPrice??'—'],['Entry time',entryTime(t)||'—'],['Exit time',(t.soldTs||t.boughtTs)||'—'],['Duration',t.duration||'—'],['Gross P/L',money(+t.pnl||0)],['Commission',money(-commFor(t))]].map(x=>`<div class="fact"><small>${x[0]}</small><div>${esc(x[1])}</div></div>`).join('');$('setup').innerHTML=setupOptions(t.setup||'');$('setup').value=t.setup||'';$('entrynote').value=t.entryNotes||'';$('exitnote').value=t.exitNotes||'';emoButtons('entryemos',entryEmos,t.emoEntry);emoButtons('exitemos',exitEmos,t.emoExit);renderShots(t);renderTagFields('tagfields',()=>current(),(cat,val)=>{let tt=current();if(tt){setTagValue(tt,cat.id,val);save();}});$('fTarget').value=t.plannedTarget??'';$('fBest').value=t.bestPrice??'';renderMissed();$('back').classList.add('show')}
 function emoButtons(id,list,val){$(id).innerHTML=list.map(x=>`<button class="emo ${x[0]==val?'sel':''}" data-val="${x[0]}">${x[1]}</button>`).join('');$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{let t=S.trades.find(x=>x.id==modalId);if(!t)return;let field=id=='entryemos'?'emoEntry':'emoExit';t[field]=t[field]==b.dataset.val?'':b.dataset.val;save();emoButtons(id,list,t[field]);renderTrades()})}
 function current(){return S.trades.find(t=>t.id==modalId)}
-$('setup').onchange=e=>{handleSetupSelect(e.target,val=>{let t=current();if(t){t.setup=val;save();renderTrades();}})};$('entrynote').oninput=e=>{let t=current();if(t){t.entryNotes=e.target.value;save()}};$('exitnote').oninput=e=>{let t=current();if(t){t.exitNotes=e.target.value;save()}};
+$('setup').onchange=e=>{handleSetupSelect(e.target,val=>{let t=current();if(t){t.setup=val;save();renderTrades();}})};$('fTarget').oninput=e=>{let t=current();if(t){t.plannedTarget=e.target.value===''?null:+e.target.value;save();renderMissed();}};$('fBest').oninput=e=>{let t=current();if(t){t.bestPrice=e.target.value===''?null:+e.target.value;save();renderMissed();}};$('entrynote').oninput=e=>{let t=current();if(t){t.entryNotes=e.target.value;save()}};$('exitnote').oninput=e=>{let t=current();if(t){t.exitNotes=e.target.value;save()}};
 function renderShots(t){
- $('shots').innerHTML=(t.screenshots||[]).map((s,i)=>`<div class="thumb"><img src="${s}" data-open="${i}"><button data-i="${i}">✕</button></div>`).join('');
- $('shots').querySelectorAll('button').forEach(b=>b.onclick=e=>{e.stopPropagation();t.screenshots.splice(+b.dataset.i,1);save();renderShots(t)});
- $('shots').querySelectorAll('img[data-open]').forEach(im=>im.onclick=()=>openLightbox(t.screenshots,+im.dataset.open));
+ let ids=t.screenshots||[];
+ $('shots').innerHTML=ids.map((id,i)=>`<div class="thumb"><img data-id="${esc(id)}" data-open="${i}" alt=""><button data-i="${i}">✕</button></div>`).join('');
+ $('shots').querySelectorAll('button').forEach(b=>b.onclick=async e=>{
+  e.stopPropagation();
+  let id=t.screenshots[+b.dataset.i];
+  t.screenshots.splice(+b.dataset.i,1);
+  save(); renderShots(t);
+  if(id && !referencedImgIds().has(id)){ imgCache.delete(id); imgDel(id).catch(()=>{}); }
+ });
+ $('shots').querySelectorAll('img[data-id]').forEach(async im=>{
+  let d=await imgLoad(im.dataset.id);
+  if(d) im.src=d;
+  im.onclick=()=>openLightbox(t.screenshots,+im.dataset.open);
+ });
 }
 // ---- full-size image viewer ----
 let lbShots=[], lbIdx=0;
@@ -1535,8 +1735,10 @@ function openLightbox(list,i){
  showLb();
  $('lightbox').classList.add('show');
 }
-function showLb(){
- $('lbimg').src=lbShots[lbIdx];
+async function showLb(){
+ let v=lbShots[lbIdx];
+ let src = (typeof v==='string'&&v.startsWith('data:')) ? v : await imgLoad(v);
+ $('lbimg').src=src||'';
  $('lbcount').textContent=lbShots.length>1?`${lbIdx+1} / ${lbShots.length}`:'';
  $('lbprev').style.display=$('lbnext').style.display=lbShots.length>1?'':'none';
 }
@@ -1580,7 +1782,9 @@ async function addShots(files){
  for(let f of files){
   if(!f.type||!f.type.startsWith('image/')) continue;
   let d=await fileToCompressedDataUrl(f);
-  if(d) t.screenshots.push(d);
+  if(!d) continue;
+  let id=newImgId(); await imgPut(id,d); imgCache.set(id,d);
+  t.screenshots.push(id);
  }
  save(); renderShots(t);
 }
@@ -1788,7 +1992,7 @@ function renderMonthly(){let d=cursors.monthly,l=monthTrades(d),net=l.reduce((a,
 $('mp').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()-1);renderMonthly()};$('mn').onclick=()=>{cursors.monthly.setMonth(cursors.monthly.getMonth()+1);renderMonthly()};$('msave').onclick=()=>{S.monthly[monthKey(cursors.monthly)]=$('mnote').value;save();renderMonthly();toast('Monthly notes saved')};
 function renderStats(){curve('svg2','total2','first2','last2');let l=S.trades;if(!l.length){$('statsgrid').innerHTML='';$('sidebreak').innerHTML='';$('timeStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';$('dayStats').innerHTML='<tr><td colspan="8" class="muted">No trade data yet.</td></tr>';return}let wins=l.filter(t=>P(t)>0),loss=l.filter(t=>P(t)<0),net=l.reduce((a,t)=>a+P(t),0),gw=wins.reduce((a,t)=>a+P(t),0),gl=Math.abs(loss.reduce((a,t)=>a+P(t),0)),pf=gl?gw/gl:(gw?'∞':'0'),aw=wins.length?gw/wins.length:0,al=loss.length?loss.reduce((a,t)=>a+P(t),0)/loss.length:0,best=l.reduce((a,t)=>P(t)>P(a)?t:a,l[0]),worst=l.reduce((a,t)=>P(t)<P(a)?t:a,l[0]),grossNet=l.reduce((a,t)=>a+(+t.pnl||0),0),commTotal=totalComm(l);let cards=[['Net P/L',money(net),net>=0?'pos':'neg'],['Total trades',l.length,''],['Win rate',(wins.length/l.length*100).toFixed(1)+'%',''],['Profit factor',pf,''],['Avg win',money(aw),'pos'],['Avg loss',money(al),'neg'],['Best trade',money(P(best)),'pos'],['Worst trade',money(P(worst)),'neg'],['Gross P/L',money(grossNet),grossNet>=0?'pos':'neg'],['Commissions',money(-commTotal),'neg'],['Journaled',l.filter(t=>t.setup||t.entryNotes||t.exitNotes||t.emoEntry).length+' / '+l.length,'']];$('statsgrid').innerHTML=cards.map(x=>`<div class="card stat"><div class="lbl">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');
 let sides={Long:[],Short:[]};l.forEach(t=>{let s=direction(t);if(sides[s])sides[s].push(t)});let sideEntries=Object.entries(sides).filter(([k,v])=>v.length);if(!sideEntries.length)$('sidebreak').innerHTML='<div class="muted">No direction data.</div>';else{$('sidebreak').innerHTML=sideEntries.map(([side,a])=>{let sw=a.filter(t=>P(t)>0),sl=a.filter(t=>P(t)<0),sp=a.reduce((x,t)=>x+P(t),0),savg=sw.length?sw.reduce((x,t)=>x+P(t),0)/sw.length:0,sbest=sw.length?Math.max(...sw.map(t=>P(t))):null;return `<div class="brow"><div class="bname ${side==='Long'?'pos':'neg'}">${side} <small>(${a.length})</small></div><div class="barbg"><div class="bar ${sp>=0?'pos':'neg'}" style="width:${Math.max(4,Math.abs(sp)/(Math.max(1,...sideEntries.map(([_,v])=>Math.abs(v.reduce((x,t)=>x+P(t),0)))))*100)}%"></div></div><div class="amt ${sp>=0?'pos':'neg'}">${money(sp)} · ${sw.length}W/${sl.length}L</div></div><div class="hint" style="margin:-4px 0 4px">${(sw.length/a.length*100).toFixed(1)}% win · avg win ${sw.length?money(savg):'—'} · best win ${sbest===null?'—':money(sbest)}</div>`}).join('')}
-let times=l.filter(t=>entryDate(t));$('timeStats').innerHTML=statRows(times,t=>bucket15(entryDate(t)),timeLabel,(a,b)=>a-b);$('dayStats').innerHTML=statRows(times,t=>entryDate(t).getDay(),k=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][k],(a,b)=>{let order=[1,2,3,4,5,6,0];return order.indexOf(a)-order.indexOf(b)});renderSetupStats(l);renderEmoStats(l);renderEventStats(l);renderCondStats(l);renderTagStats(l);breakdown('symbreak',l,t=>t.symbol)}
+let times=l.filter(t=>entryDate(t));$('timeStats').innerHTML=statRows(times,t=>bucket15(entryDate(t)),timeLabel,(a,b)=>a-b);$('dayStats').innerHTML=statRows(times,t=>entryDate(t).getDay(),k=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][k],(a,b)=>{let order=[1,2,3,4,5,6,0];return order.indexOf(a)-order.indexOf(b)});renderSetupStats(l);renderEmoStats(l);renderMissedStats(l);renderEventStats(l);renderCondStats(l);renderTagStats(l);breakdown('symbreak',l,t=>t.symbol)}
 function renderEventStats(l){
  let g={}, noEv={n:0,w:0,ls:0,p:0,days:new Set()};
  l.forEach(t=>{
@@ -1816,6 +2020,38 @@ function renderEventStats(l){
  }).join('');
 }
 const allEmoLabels={calm:'Calm',confident:'Confident',hesitant:'Hesitant',fomo:'FOMO',revenge:'Revenge',satisfied:'Satisfied',relieved:'Relieved',fearful:'Fearful',frustrated:'Frustrated',regret:'Regret'};
+
+function renderMissedStats(l){
+ if(!$('missedStats')) return;
+ let tracked=l.filter(t=>leftOnTable(t)!=null);
+ if(!tracked.length){
+  $('missedCards').innerHTML='';
+  $('missedStats').innerHTML='<tr><td colspan="6" class="muted">No trades have a planned target or best price recorded yet. Add either one on a trade to start measuring this.</td></tr>';
+  return;
+ }
+ let totalMissed=tracked.reduce((a,t)=>a+leftOnTable(t).amount,0);
+ let actual=tracked.reduce((a,t)=>a+P(t),0);
+ let cards=[
+  ['Trades measured',tracked.length+' / '+l.length,''],
+  ['Left on the table',money(totalMissed),'neg'],
+  ['Actual P/L on those',money(actual),actual>=0?'pos':'neg'],
+  ['Could have been',money(actual+totalMissed),'pos'],
+ ];
+ $('missedCards').innerHTML=cards.map(x=>`<div class="card stat"><div class="lbl">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');
+
+ let g={};
+ tracked.forEach(t=>{
+  let k=t.emoExit||'__none';
+  g[k]??={n:0,missed:0,actual:0};
+  let v=g[k]; v.n++; v.missed+=leftOnTable(t).amount; v.actual+=P(t);
+ });
+ let rows=Object.entries(g).sort((a,b)=>b[1].missed-a[1].missed);
+ $('missedStats').innerHTML=rows.map(([k,v])=>{
+  let label=k==='__none'?'Not tagged':(allEmoLabels[k]||k);
+  let dim=k==='__none'?' style="opacity:.6"':'';
+  return `<tr${dim}><td>${esc(label)}</td><td>${v.n}</td><td class="neg">${money(v.missed)}</td><td class="neg">${money(v.missed/v.n)}</td><td class="${v.actual>=0?'pos':'neg'}">${money(v.actual)}</td><td class="pos">${money(v.actual+v.missed)}</td></tr>`;
+ }).join('');
+}
 function renderEmoStats(l){
  function build(field,tbodyId,withAvgSplit){
   let g={};
@@ -2367,6 +2603,11 @@ function renderAll(){ showLastBackup(); backupHealth(); $('tradeCount').textCont
  S.conditions=S.conditions||STARTER_CONDITIONS.slice();
  S.dayConds=S.dayConds||{};
  S.gh=S.gh||{repo:'',branch:'main',path:'blotter-backup.json',token:'',auto:false,lastPush:null};
+ // one-time: lift any inline base64 out of the journal into the image store
+ try{
+  let moved=await migrateInlineImages();
+  if(moved){ toast(`Moved ${moved} image${moved==1?'':'s'} out of the journal file`); }
+ }catch(err){}
  try{ syncTagOptions(); }catch(err){}
  try{ syncSetups(); }catch(err){}
  save();
